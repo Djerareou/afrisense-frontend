@@ -7,6 +7,7 @@ import MapView from '../components/map/MapView';
 
 export function App() {
   const [selectedTrackerId, setSelectedTrackerId] = useState('car1');
+  const [activeTab, setActiveTab] = useState<'map' | 'trackers' | 'alerts'>('map');
 
   // Mock data
   const trackers = [
@@ -63,17 +64,60 @@ export function App() {
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-gray-100">
       <Header />
-      <main className="flex-1 flex overflow-hidden">
-        {/* Left Sidebar */}
-        <TrackerList
-          trackers={trackers}
-          selectedId={selectedTrackerId}
-          onSelect={setSelectedTrackerId}
-          onAddTracker={() => alert('Ajouter un traqueur')}
-        />
+      
+      {/* Mobile Tabs - Only visible on small screens */}
+      <div className="lg:hidden bg-white border-b border-gray-200 flex font-['Inter']">
+        <button
+          onClick={() => setActiveTab('map')}
+          className={`flex-1 px-4 py-3 text-sm font-medium transition-all ${
+            activeTab === 'map'
+              ? 'bg-[#00BFA6] text-white'
+              : 'text-gray-600 hover:bg-gray-50'
+          }`}
+        >
+          <span className="mr-2">🗺️</span>
+          Carte
+        </button>
+        <button
+          onClick={() => setActiveTab('trackers')}
+          className={`flex-1 px-4 py-3 text-sm font-medium transition-all ${
+            activeTab === 'trackers'
+              ? 'bg-[#00BFA6] text-white'
+              : 'text-gray-600 hover:bg-gray-50'
+          }`}
+        >
+          <span className="mr-2">🚗</span>
+          Traqueurs
+        </button>
+        <button
+          onClick={() => setActiveTab('alerts')}
+          className={`flex-1 px-4 py-3 text-sm font-medium transition-all relative ${
+            activeTab === 'alerts'
+              ? 'bg-[#00BFA6] text-white'
+              : 'text-gray-600 hover:bg-gray-50'
+          }`}
+        >
+          <span className="mr-2">🔔</span>
+          Alertes
+          <span className="absolute top-1 right-2 bg-[#FF7F50] text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+            3
+          </span>
+        </button>
+      </div>
 
-        {/* Center Map */}
-        <div className="flex-1">
+      <main className="flex-1 flex overflow-hidden">
+        {/* Left Sidebar - Hidden on mobile, visible on desktop */}
+        <div className={`${activeTab === 'trackers' ? 'block' : 'hidden'} lg:block w-full lg:w-auto`}>
+          <TrackerList
+            trackers={trackers}
+            selectedId={selectedTrackerId}
+            onSelect={setSelectedTrackerId}
+            onAddTracker={() => alert('Ajouter un traqueur')}
+          />
+        </div>
+
+        {/* Center Map - Hidden on mobile based on active tab, always visible on desktop */}
+        <div className={`${activeTab === 'map' ? 'block' : 'hidden'} lg:block flex-1`}>
           <MapView
             center={mapCenter}
             zoom={13}
@@ -87,11 +131,13 @@ export function App() {
           />
         </div>
 
-        {/* Right Sidebar */}
-        <AlertsPanel
-          alerts={alerts}
-          onViewAll={() => alert('Afficher toutes les alertes')}
-        />
+        {/* Right Sidebar - Hidden on mobile, visible on desktop */}
+        <div className={`${activeTab === 'alerts' ? 'block' : 'hidden'} lg:block w-full lg:w-auto`}>
+          <AlertsPanel
+            alerts={alerts}
+            onViewAll={() => alert('Afficher toutes les alertes')}
+          />
+        </div>
       </main>
       <Footer />
     </div>

@@ -52,10 +52,10 @@ export default function AlertsPanel({ alerts, onViewAll }: AlertsPanelProps) {
   };
 
   return (
-    <div className="w-80 bg-white h-full flex flex-col border-l border-gray-200 font-['Inter']">
+    <div className="w-full lg:w-80 bg-white h-full flex flex-col border-l border-gray-200 font-['Inter']">
       {/* Header */}
-      <div className="p-4 border-b border-white/10 bg-[#F5F7FA]">
-        <h2 className="text-lg font-bold text-gray-800">Panneau d'alertes</h2>
+      <div className="p-4 md:p-4 border-b border-white/10 bg-[#F5F7FA]">
+        <h2 className="text-base md:text-lg font-bold text-gray-800">Panneau d'alertes</h2>
       </div>
 
       {/* Alerts List */}
@@ -82,10 +82,10 @@ export default function AlertsPanel({ alerts, onViewAll }: AlertsPanelProps) {
       </div>
 
       {/* View All Button */}
-      <div className="p-4 border-t border-gray-200 bg-white">
+      <div className="p-3 md:p-4 border-t border-gray-200 bg-white">
         <button
           onClick={onViewAll}
-          className="w-full px-4 py-3 bg-[#3B6EA5] text-white rounded-lg hover:bg-[#00a892] transition-all shadow-sm font-semibold"
+          className="w-full px-4 py-2.5 md:py-3 bg-[#3B6EA5] text-white rounded-lg hover:bg-[#00a892] transition-all shadow-sm font-semibold text-sm md:text-base"
         >
           Afficher tout
         </button>

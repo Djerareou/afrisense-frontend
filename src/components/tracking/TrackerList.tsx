@@ -16,10 +16,10 @@ interface TrackerListProps {
 
 export default function TrackerList({ trackers, selectedId, onSelect, onAddTracker }: TrackerListProps) {
   return (
-    <div className="w-64 bg-white h-full flex flex-col border-r border-gray-200 font-['Inter']">
+    <div className="w-full lg:w-64 bg-white h-full flex flex-col border-r border-gray-200 font-['Inter']">
       {/* Header */}
-      <div className="p-5 border-b border-gray-200 bg-[#F5F7FA]">
-        <h2 className="text-lg font-bold text-gray-800">Liste des traqueurs</h2>
+      <div className="p-4 md:p-5 border-b border-gray-200 bg-[#F5F7FA]">
+        <h2 className="text-base md:text-lg font-bold text-gray-800">Liste des traqueurs</h2>
       </div>
 
       {/* Tracker List */}
@@ -75,12 +75,12 @@ export default function TrackerList({ trackers, selectedId, onSelect, onAddTrack
       </div>
 
       {/* Add Tracker Button */}
-      <div className="p-4 border-t border-gray-200 bg-white">
+      <div className="p-3 md:p-4 border-t border-gray-200 bg-white">
         <button
           onClick={onAddTracker}
-          className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-[#3B6EA5] text-white rounded-lg hover:bg-[#00a892] transition-all shadow-md font-medium"
+          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 md:py-3 bg-[#3B6EA5] text-white rounded-lg hover:bg-[#00a892] transition-all shadow-md font-medium text-sm md:text-base"
         >
-          <span className="text-xl">+</span>
+          <span className="text-lg md:text-xl">+</span>
           <span>Ajouter un traqueur</span>
         </button>
       </div>
