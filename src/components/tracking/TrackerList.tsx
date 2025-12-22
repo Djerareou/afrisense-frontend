@@ -18,17 +18,17 @@ export default function TrackerList({ trackers, selectedId, onSelect, onAddTrack
   return (
     <div className="w-64 bg-white h-full flex flex-col border-r border-gray-200 font-['Inter']">
       {/* Header */}
-      <div className="p-4 border-b border-gray-200 bg-[#F5F7FA]">
+      <div className="p-5 border-b border-gray-200 bg-[#F5F7FA]">
         <h2 className="text-lg font-bold text-gray-800">Liste des traqueurs</h2>
       </div>
 
       {/* Tracker List */}
-      <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-white">
+      <div className="flex-1 overflow-y-auto p-3 space-y-3 bg-white">
         {trackers.map((tracker) => (
           <div
             key={tracker.id}
             onClick={() => onSelect(tracker.id)}
-            className={`p-3 rounded-lg border-2 cursor-pointer transition-all shadow-sm hover:shadow-md ${
+            className={`p-4 rounded-lg border-2 cursor-pointer transition-all shadow-sm hover:shadow-md ${
               selectedId === tracker.id
                 ? 'border-[#00BFA6] bg-[#00BFA6]/5'
                 : 'border-gray-200 bg-white hover:border-[#00BFA6]/50'

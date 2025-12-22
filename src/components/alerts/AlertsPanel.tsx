@@ -59,7 +59,7 @@ export default function AlertsPanel({ alerts, onViewAll }: AlertsPanelProps) {
       </div>
 
       {/* Alerts List */}
-      <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-[#F5F7FA]">
+      <div className="flex-1 overflow-y-auto p-3 space-y-3 bg-[#F5F7FA]">
         {alerts.map((alert) => (
           <div
             key={alert.id}

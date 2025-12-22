@@ -91,7 +91,7 @@ export default function MapView({
 
         {/* Info Bar */}
         <div className="absolute bottom-4 left-4 right-4 z-[1000] ">
-          <div className="bg-[#3B6EA5] text-gray-800 px-6 py-3 rounded-lg shadow-lg flex items-center justify-between font-['Inter'] border border-gray-200">
+          <div className="bg-[#3B6EA5] text-gray-800 px-8 py-4 rounded-lg shadow-lg flex items-center justify-between font-['Inter'] border border-gray-200">
             <div className="flex items-center gap-6">
               <div className="flex items-center gap-2">
                 <span className="text-lg">⚡</span>
@@ -113,7 +113,7 @@ export default function MapView({
         </div>
 
         {/* Map Controls */}
-        <div className="absolute bottom-24 left-4 z-[1000] flex gap-2 font-['Inter']">
+        <div className="absolute bottom-24 left-4 z-[1000] flex gap-3 font-['Inter']">
           <button className="bg-[#00BFA6] text-white px-4 py-2 rounded-lg hover:bg-[#00a892] transition-all font-medium shadow-md flex items-center gap-2">
             <span>+</span>
             <span>Ajouter une géorepérage</span>
