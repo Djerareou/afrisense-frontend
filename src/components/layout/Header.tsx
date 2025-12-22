@@ -4,22 +4,22 @@ export default function Header() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   return (
-    <header className="h-16 bg-[#3B6EA5] text-white flex items-center justify-between px-4 md:px-8 shadow-md relative">
+    <header className="h-16 bg-[#3B6EA5] text-white flex items-center justify-between px-4 md:px-8 shadow-md relative w-full shrink-0">
       {/* Left - Logo */}
-      <div className="flex items-center gap-2 md:gap-3">
-        <div className="w-8 h-8 md:w-10 md:h-10 bg-[#00BFA6] rounded-lg flex items-center justify-center shadow-md">
+      <div className="flex items-center gap-2 md:gap-3 min-w-0">
+        <div className="w-8 h-8 md:w-10 md:h-10 bg-[#00BFA6] rounded-lg flex items-center justify-center shadow-md shrink-0">
           <span className="text-xl md:text-2xl">📡</span>
         </div>
-        <div>
-          <h1 className="text-lg md:text-2xl font-bold tracking-tight font-['Inter']">AfriSense</h1>
-          <p className="text-[10px] md:text-xs text-white/70 font-['Inter'] hidden sm:block">GPS Tracking System</p>
+        <div className="min-w-0">
+          <h1 className="text-base sm:text-lg md:text-2xl font-bold tracking-tight font-['Inter'] truncate">AfriSense</h1>
+          <p className="text-[10px] md:text-xs text-white/70 font-['Inter'] hidden sm:block truncate">GPS Tracking System</p>
         </div>
       </div>
 
       {/* Mobile Menu Button */}
       <button 
         onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-        className="lg:hidden flex items-center justify-center w-10 h-10 hover:bg-white/10 rounded-lg transition-all"
+        className="lg:hidden flex items-center justify-center w-10 h-10 hover:bg-white/10 rounded-lg transition-all shrink-0"
         aria-label="Toggle menu"
       >
         {isMobileMenuOpen ? (
@@ -30,39 +30,39 @@ export default function Header() {
       </button>
 
       {/* Desktop Navigation */}
-      <nav className="hidden lg:flex items-center gap-3 font-['Inter']">
-        <button className="flex items-center gap-2 px-6 py-2.5 bg-[#00BFA6] hover:bg-[#00a892] rounded-lg transition-all duration-200 shadow-sm">
+      <nav className="hidden lg:flex items-center gap-2 xl:gap-3 font-['Inter'] flex-wrap">
+        <button className="flex items-center gap-2 px-4 xl:px-6 py-2.5 bg-[#00BFA6] hover:bg-[#00a892] rounded-lg transition-all duration-200 shadow-sm whitespace-nowrap">
           <span className="text-lg">🏠</span>
-          <span className="font-medium">Dashboard</span>
+          <span className="font-medium text-sm xl:text-base">Dashboard</span>
         </button>
 
-        <button className="flex items-center gap-2 px-6 py-2.5 hover:bg-white/10 rounded-lg transition-all duration-200">
+        <button className="flex items-center gap-2 px-4 xl:px-6 py-2.5 hover:bg-white/10 rounded-lg transition-all duration-200 whitespace-nowrap">
           <span className="text-lg">🚗</span>
-          <span className="font-medium">Mes véhicules</span>
+          <span className="font-medium text-sm xl:text-base">Mes véhicules</span>
         </button>
         
-        <button className="flex items-center gap-2 px-6 py-2.5 hover:bg-white/10 rounded-lg transition-all duration-200">
+        <button className="flex items-center gap-2 px-4 xl:px-6 py-2.5 hover:bg-white/10 rounded-lg transition-all duration-200 whitespace-nowrap">
           <span className="text-lg">💳</span>
-          <span className="font-medium">Abonnement</span>
+          <span className="font-medium text-sm xl:text-base">Abonnement</span>
         </button>
         
-        <button className="flex items-center gap-2 px-6 py-2.5 hover:bg-white/10 rounded-lg transition-all duration-200">
+        <button className="flex items-center gap-2 px-4 xl:px-6 py-2.5 hover:bg-white/10 rounded-lg transition-all duration-200 whitespace-nowrap">
           <span className="text-lg">📍</span>
-          <span className="font-medium">Géorepérage</span>
+          <span className="font-medium text-sm xl:text-base">Géorepérage</span>
         </button>
         
-        <button className="flex items-center gap-2 px-6 py-2.5 hover:bg-white/10 rounded-lg transition-all duration-200 relative">
+        <button className="flex items-center gap-2 px-4 xl:px-6 py-2.5 hover:bg-white/10 rounded-lg transition-all duration-200 relative whitespace-nowrap">
           <span className="text-lg">🔔</span>
-          <span className="font-medium">Alertes</span>
+          <span className="font-medium text-sm xl:text-base">Alertes</span>
           <span className="absolute -top-1 -right-1 bg-[#FF7F50] text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center shadow-md">
             5
           </span>
         </button>
         
-        <div className="w-px h-8 bg-white/20 mx-3"></div>
+        <div className="w-px h-8 bg-white/20 mx-2 xl:mx-3"></div>
         
-        <button className="flex items-center gap-3 px-4 py-2.5 hover:bg-white/10 rounded-lg transition-all duration-200">
-          <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
+        <button className="flex items-center gap-2 xl:gap-3 px-3 xl:px-4 py-2.5 hover:bg-white/10 rounded-lg transition-all duration-200 whitespace-nowrap">
+          <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center shrink-0">
             <span className="text-lg">👤</span>
           </div>
           <div className="text-left">
