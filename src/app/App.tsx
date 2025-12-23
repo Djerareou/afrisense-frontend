@@ -1,11 +1,15 @@
 import { useState } from 'react';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { AuthProvider } from '../auth/auth.context';
+import Login from '../auth/pages/Login';
+import Register from '../auth/pages/Register';
 import Header from '../components/layout/Header';
 import Footer from '../components/layout/Footer';
 import TrackerList from '../components/tracking/TrackerList';
 import AlertsPanel from '../components/alerts/AlertsPanel';
 import MapView from '../components/map/MapView';
 
-export function App() {
+function Dashboard() {
   const [selectedTrackerId, setSelectedTrackerId] = useState('car1');
   const [activeTab, setActiveTab] = useState<'map' | 'trackers' | 'alerts'>('map');
 
@@ -23,6 +27,13 @@ export function App() {
       name: 'Bike 01',
       status: 'offline' as const,
       lastSeen: 'Dernière connexion il y a 2h',
+    },
+    {
+      id: 'truck1',
+      name: 'Truck 01',
+      status: 'online' as const,
+      speed: 60,
+      battery: 95,
     },
   ];
 
@@ -65,8 +76,8 @@ export function App() {
     <div className="h-screen w-screen flex flex-col overflow-hidden bg-gray-100 max-w-full">
       <Header />
       
-      {/* Mobile Tabs - Only visible on small screens */}
-      <div className="lg:hidden bg-white border-b border-gray-200 flex font-['Inter'] w-full shrink-0">
+          {/* Mobile Tabs - Only visible on small screens */}
+          <div className="lg:hidden bg-white border-b border-gray-200 flex font-['Inter'] w-full shrink-0">
         <button
           onClick={() => setActiveTab('map')}
           className={`flex-1 px-2 sm:px-4 py-3 text-xs sm:text-sm font-medium transition-all ${
@@ -140,6 +151,20 @@ export function App() {
         </div>
       </main>
       <Footer />
-    </div>
+      </div>
+  );
+}
+
+export function App() {
+  return (
+    <BrowserRouter>
+      <AuthProvider>
+        <Routes>
+          <Route path="/" element={<Dashboard />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+        </Routes>
+      </AuthProvider>
+    </BrowserRouter>
   );
 }

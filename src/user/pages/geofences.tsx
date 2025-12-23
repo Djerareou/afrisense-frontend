@@ -1,0 +1,227 @@
+import { useState } from 'react';
+import { MapPin, Plus, Circle, Edit, Trash2 } from 'lucide-react';
+
+interface Geofence {
+  id: string;
+  name: string;
+  tracker: string;
+  type: 'circle';
+  center: { lat: number; lng: number };
+  radius: number;
+  status: 'active' | 'inactive';
+  color: string;
+}
+
+export default function GeofencesPage() {
+  // Mock data
+  const [geofences] = useState<Geofence[]>([
+    {
+      id: '1',
+      name: 'Bureau',
+      tracker: 'Toyota Camry',
+      type: 'circle',
+      center: { lat: 4.0511, lng: 9.7679 },
+      radius: 200,
+      status: 'active',
+      color: '#00BFA6',
+    },
+    {
+      id: '2',
+      name: 'Domicile',
+      tracker: 'Toyota Camry',
+      type: 'circle',
+      center: { lat: 4.0611, lng: 9.7779 },
+      radius: 150,
+      status: 'active',
+      color: '#3B6EA5',
+    },
+    {
+      id: '3',
+      name: 'Entrepôt',
+      tracker: 'Ford Transit',
+      type: 'circle',
+      center: { lat: 4.0411, lng: 9.7579 },
+      radius: 300,
+      status: 'active',
+      color: '#FF6B6B',
+    },
+    {
+      id: '4',
+      name: 'Zone interdite',
+      tracker: 'Honda Accord',
+      type: 'circle',
+      center: { lat: 4.0711, lng: 9.7879 },
+      radius: 500,
+      status: 'inactive',
+      color: '#FFC107',
+    },
+  ]);
+
+  const activeGeofences = geofences.filter(g => g.status === 'active').length;
+
+  return (
+    <div className="max-w-7xl mx-auto">
+      {/* Header */}
+      <div className="mb-8 flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Géofencing</h1>
+          <p className="mt-2 text-gray-600">
+            Créez des zones virtuelles et recevez des alertes lorsque vos trackers entrent ou sortent
+          </p>
+        </div>
+        <button className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[#00BFA6] to-[#3B6EA5] text-white rounded-lg hover:shadow-lg transition-all font-medium">
+          <Plus size={20} />
+          Nouvelle zone
+        </button>
+      </div>
+
+      {/* Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-600">Total Zones</p>
+              <p className="text-3xl font-bold text-gray-900 mt-1">{geofences.length}</p>
+            </div>
+            <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+              <MapPin className="text-blue-600" size={24} />
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-600">Zones Actives</p>
+              <p className="text-3xl font-bold text-green-600 mt-1">{activeGeofences}</p>
+            </div>
+            <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+              <Circle className="text-green-600" size={24} />
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-600">Événements (24h)</p>
+              <p className="text-3xl font-bold text-blue-600 mt-1">12</p>
+            </div>
+            <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+              <MapPin className="text-blue-600" size={24} />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Map Preview (Placeholder) */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 mb-8 overflow-hidden">
+        <div className="h-96 bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
+          <div className="text-center">
+            <MapPin size={64} className="text-gray-400 mx-auto mb-4" />
+            <p className="text-gray-600 font-medium">Carte interactive des géofences</p>
+            <p className="text-sm text-gray-500 mt-2">La carte sera intégrée prochainement</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Geofences List */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100">
+        <div className="p-6 border-b border-gray-200">
+          <h2 className="text-xl font-bold text-gray-900">Liste des zones</h2>
+        </div>
+
+        <div className="divide-y divide-gray-200">
+          {geofences.map((geofence) => (
+            <div key={geofence.id} className="p-6 hover:bg-gray-50 transition-colors">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4 flex-1">
+                  {/* Color Indicator */}
+                  <div
+                    className="w-4 h-4 rounded-full flex-shrink-0"
+                    style={{ backgroundColor: geofence.color }}
+                  ></div>
+
+                  {/* Geofence Info */}
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-1">
+                      <h3 className="font-bold text-gray-900">{geofence.name}</h3>
+                      <span
+                        className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                          geofence.status === 'active'
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-gray-100 text-gray-800'
+                        }`}
+                      >
+                        {geofence.status === 'active' ? 'Active' : 'Inactive'}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-4 text-sm text-gray-600">
+                      <span className="flex items-center gap-1">
+                        <MapPin size={14} />
+                        {geofence.tracker}
+                      </span>
+                      <span>•</span>
+                      <span>Rayon: {geofence.radius}m</span>
+                      <span>•</span>
+                      <span>
+                        Position: {geofence.center.lat.toFixed(4)}, {geofence.center.lng.toFixed(4)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="flex items-center gap-2">
+                  <button className="p-2 hover:bg-gray-200 rounded-lg transition-colors">
+                    <Edit size={18} className="text-gray-600" />
+                  </button>
+                  <button className="p-2 hover:bg-red-100 rounded-lg transition-colors">
+                    <Trash2 size={18} className="text-red-600" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* How it Works */}
+      <div className="mt-8 bg-gradient-to-r from-blue-50 to-teal-50 rounded-xl p-8 border border-blue-100">
+        <h3 className="text-xl font-bold text-gray-900 mb-4">Comment ça marche ?</h3>
+        <div className="grid md:grid-cols-3 gap-6">
+          <div>
+            <div className="w-10 h-10 bg-blue-600 text-white rounded-lg flex items-center justify-center font-bold mb-3">
+              1
+            </div>
+            <h4 className="font-semibold text-gray-900 mb-2">Créez une zone</h4>
+            <p className="text-sm text-gray-600">
+              Définissez un périmètre virtuel en choisissant un point central et un rayon
+            </p>
+          </div>
+
+          <div>
+            <div className="w-10 h-10 bg-blue-600 text-white rounded-lg flex items-center justify-center font-bold mb-3">
+              2
+            </div>
+            <h4 className="font-semibold text-gray-900 mb-2">Associez un tracker</h4>
+            <p className="text-sm text-gray-600">
+              Liez la zone à un ou plusieurs trackers GPS pour surveiller leurs déplacements
+            </p>
+          </div>
+
+          <div>
+            <div className="w-10 h-10 bg-blue-600 text-white rounded-lg flex items-center justify-center font-bold mb-3">
+              3
+            </div>
+            <h4 className="font-semibold text-gray-900 mb-2">Recevez des alertes</h4>
+            <p className="text-sm text-gray-600">
+              Soyez notifié instantanément lorsqu'un tracker entre ou sort de la zone
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
