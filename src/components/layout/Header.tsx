@@ -36,6 +36,7 @@ export default function Header() {
         </div>
       </div>
 
+      {/* Search field - Global search across the app */}
       <div className="hidden lg:flex flex-1 max-w-md mx-8 relative z-10">
         <div className="w-full relative group">
           <div className="absolute inset-0 bg-white/10 rounded-xl blur-sm group-hover:bg-white/15 transition-colors"></div>
@@ -60,23 +61,30 @@ export default function Header() {
       </button>
 
       <nav className="hidden lg:flex items-center gap-2 xl:gap-3 font-['Inter'] relative z-10">
-        <button className="flex items-center gap-2 px-4 xl:px-5 py-2.5 min-h-touch bg-gradient-to-r from-[#00BFA6] to-[#00d4b8] hover:from-[#00d4b8] hover:to-[#00BFA6] rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105 whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-[#3B6EA5] backdrop-blur-md">
+        <button className="flex items-center gap-2 px-4 xl:px-5 py-2.5 min-h-touch bg-gradient-to-r from-[#00BFA6] to-[#00d4b8] hover:from-[#00d4b8] hover:to-[#00BFA6] rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105 whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-[#3B6EA5] backdrop-blur-md"
+          onClick={() => navigate('/')}>
           <Home className="w-5 h-5" />
           <span className="font-bold text-sm xl:text-base">Dashboard</span>
         </button>
-        <button className="flex items-center gap-2 px-4 xl:px-5 py-2.5 min-h-touch bg-white/10 backdrop-blur-md hover:bg-white/20 rounded-xl transition-all duration-200 whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-[#3B6EA5] border border-white/10 hover:border-white/20 shadow-md hover:shadow-lg">
+        <button className="flex items-center gap-2 px-4 xl:px-5 py-2.5 min-h-touch bg-white/10 backdrop-blur-md hover:bg-white/20 rounded-xl transition-all duration-200 whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-[#3B6EA5] border border-white/10 hover:border-white/20 shadow-md hover:shadow-lg"
+          onClick={() => navigate('/devices')}>
           <Car className="w-5 h-5" />
           <span className="font-semibold text-sm xl:text-base">Mes véhicules</span>
         </button>
-        <button className="flex items-center gap-2 px-4 xl:px-5 py-2.5 min-h-touch bg-white/10 backdrop-blur-md hover:bg-white/20 rounded-xl transition-all duration-200 whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-[#3B6EA5] border border-white/10 hover:border-white/20 shadow-md hover:shadow-lg">
+        <button className="flex items-center gap-2 px-4 xl:px-5 py-2.5 min-h-touch bg-white/10 backdrop-blur-md hover:bg-white/20 rounded-xl transition-all duration-200 whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-[#3B6EA5] border border-white/10 hover:border-white/20 shadow-md hover:shadow-lg"
+          onClick={() => navigate('/subscriptions')}>
           <CreditCard className="w-5 h-5" />
           <span className="font-semibold text-sm xl:text-base">Abonnement</span>
         </button>
-        <button className="flex items-center gap-2 px-4 xl:px-5 py-2.5 min-h-touch bg-white/10 backdrop-blur-md hover:bg-white/20 rounded-xl transition-all duration-200 whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-[#3B6EA5] border border-white/10 hover:border-white/20 shadow-md hover:shadow-lg">
+        <button 
+          onClick={() => navigate('/geofences')}
+          className="flex items-center gap-2 px-4 xl:px-5 py-2.5 min-h-touch bg-white/10 backdrop-blur-md hover:bg-white/20 rounded-xl transition-all duration-200 whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-[#3B6EA5] border border-white/10 hover:border-white/20 shadow-md hover:shadow-lg">
           <MapPin className="w-5 h-5" />
-          <span className="font-semibold text-sm xl:text-base">Géorepérage</span>
+          <span className="font-semibold text-sm xl:text-base">Géofences</span>
         </button>
-        <button className="flex items-center gap-2 px-4 xl:px-5 py-2.5 min-h-touch bg-white/10 backdrop-blur-md hover:bg-white/20 rounded-xl transition-all duration-200 relative whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-[#3B6EA5] border border-white/10 hover:border-white/20 shadow-md hover:shadow-lg">
+        <button 
+          onClick={() => navigate('/alerts')}
+          className="flex items-center gap-2 px-4 xl:px-5 py-2.5 min-h-touch bg-white/10 backdrop-blur-md hover:bg-white/20 rounded-xl transition-all duration-200 relative whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-[#3B6EA5] border border-white/10 hover:border-white/20 shadow-md hover:shadow-lg">
           <Bell className="w-5 h-5" />
           <span className="font-semibold text-sm xl:text-base">Alertes</span>
           <span className="absolute -top-1 -right-1 bg-gradient-to-r from-[#FF7F50] to-[#ff6b3d] text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center shadow-lg animate-pulse">5</span>
@@ -160,26 +168,22 @@ export default function Header() {
           <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-white/5 pointer-events-none"></div>
           <div className="relative flex flex-col p-4 md:p-6 space-y-3 md:space-y-4 h-full overflow-y-auto max-w-4xl mx-auto">
             
-            {/* Barre de recherche */}
-            <div className="relative group mb-2 md:mb-4">
-              <div className="absolute inset-0 bg-white/10 rounded-xl blur-sm group-hover:bg-white/15 transition-colors"></div>
-              <div className="relative flex items-center bg-white/10 backdrop-blur-md rounded-xl border border-white/20 overflow-hidden shadow-lg">
-                <Search className="absolute left-4 md:left-5 w-5 h-5 md:w-6 md:h-6 text-white/60 pointer-events-none" />
-                <input type="text" placeholder="Rechercher..." className="w-full pl-12 md:pl-14 pr-4 md:pr-6 py-3 md:py-4 bg-transparent text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-white/30 font-medium text-sm md:text-base" />
-              </div>
-            </div>
+            {/* Search removed - now only in specific pages */}
             
             {/* Navigation principale - Grille sur tablettes */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
-              <button className="flex items-center gap-3 md:gap-4 px-4 md:px-6 py-3 md:py-4 min-h-touch bg-gradient-to-r from-[#00BFA6] to-[#00d4b8] hover:from-[#00d4b8] hover:to-[#00BFA6] rounded-xl transition-all duration-200 shadow-lg text-left w-full focus:outline-none focus:ring-2 focus:ring-white backdrop-blur-md">
+              <button className="flex items-center gap-3 md:gap-4 px-4 md:px-6 py-3 md:py-4 min-h-touch bg-gradient-to-r from-[#00BFA6] to-[#00d4b8] hover:from-[#00d4b8] hover:to-[#00BFA6] rounded-xl transition-all duration-200 shadow-lg text-left w-full focus:outline-none focus:ring-2 focus:ring-white backdrop-blur-md"
+                onClick={() => { navigate('/'); setIsMobileMenuOpen(false); }}>
                 <Home className="w-5 h-5 md:w-6 md:h-6" />
                 <span className="font-bold text-sm md:text-base">Dashboard</span>
               </button>
-              <button className="flex items-center gap-3 md:gap-4 px-4 md:px-6 py-3 md:py-4 min-h-touch bg-white/10 backdrop-blur-md hover:bg-white/20 rounded-xl transition-all duration-200 text-left w-full focus:outline-none focus:ring-2 focus:ring-white border border-white/10 shadow-md">
+              <button className="flex items-center gap-3 md:gap-4 px-4 md:px-6 py-3 md:py-4 min-h-touch bg-white/10 backdrop-blur-md hover:bg-white/20 rounded-xl transition-all duration-200 text-left w-full focus:outline-none focus:ring-2 focus:ring-white border border-white/10 shadow-md"
+                onClick={() => { navigate('/devices'); setIsMobileMenuOpen(false); }}>
                 <Car className="w-5 h-5 md:w-6 md:h-6" />
                 <span className="font-semibold text-sm md:text-base">Mes véhicules</span>
               </button>
-              <button className="flex items-center gap-3 md:gap-4 px-4 md:px-6 py-3 md:py-4 min-h-touch bg-white/10 backdrop-blur-md hover:bg-white/20 rounded-xl transition-all duration-200 text-left w-full focus:outline-none focus:ring-2 focus:ring-white border border-white/10 shadow-md">
+              <button className="flex items-center gap-3 md:gap-4 px-4 md:px-6 py-3 md:py-4 min-h-touch bg-white/10 backdrop-blur-md hover:bg-white/20 rounded-xl transition-all duration-200 text-left w-full focus:outline-none focus:ring-2 focus:ring-white border border-white/10 shadow-md"
+                onClick={() => { navigate('/subscriptions'); setIsMobileMenuOpen(false); }}>
                 <CreditCard className="w-5 h-5 md:w-6 md:h-6" />
                 <span className="font-semibold text-sm md:text-base">Abonnement</span>
               </button>
@@ -187,7 +191,12 @@ export default function Header() {
                 <MapPin className="w-5 h-5 md:w-6 md:h-6" />
                 <span className="font-semibold text-sm md:text-base">Géorepérage</span>
               </button>
-              <button className="flex items-center gap-3 md:gap-4 px-4 md:px-6 py-3 md:py-4 min-h-touch bg-white/10 backdrop-blur-md hover:bg-white/20 rounded-xl transition-all duration-200 relative text-left w-full focus:outline-none focus:ring-2 focus:ring-white border border-white/10 shadow-md md:col-span-2">
+              <button 
+                onClick={() => {
+                  setIsMobileMenuOpen(false);
+                  navigate('/alerts');
+                }}
+                className="flex items-center gap-3 md:gap-4 px-4 md:px-6 py-3 md:py-4 min-h-touch bg-white/10 backdrop-blur-md hover:bg-white/20 rounded-xl transition-all duration-200 relative text-left w-full focus:outline-none focus:ring-2 focus:ring-white border border-white/10 shadow-md md:col-span-2">
                 <Bell className="w-5 h-5 md:w-6 md:h-6" />
                 <span className="font-semibold text-sm md:text-base">Alertes</span>
                 <span className="ml-auto bg-gradient-to-r from-[#FF7F50] to-[#ff6b3d] text-white text-xs md:text-sm font-bold rounded-full w-7 h-7 md:w-8 md:h-8 flex items-center justify-center shadow-lg animate-pulse">5</span>

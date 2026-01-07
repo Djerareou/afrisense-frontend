@@ -1,4 +1,5 @@
-import { API_CONFIG, API_ENDPOINTS } from './config';
+import { API_CONFIG } from './config';
+import { io, Socket } from 'socket.io-client';
 
 // ==================== Types ====================
 
@@ -33,13 +34,10 @@ export type WebSocketMessage = LivePositionMessage | GeofenceEventMessage;
 // ==================== WebSocket Client ====================
 
 export class LiveWebSocket {
-  private ws: WebSocket | null = null;
-  private reconnectAttempts = 0;
-  private maxReconnectAttempts = 5;
-  private reconnectDelay = 3000;
+  private socket: Socket | null = null;
   private messageHandlers: Set<(message: WebSocketMessage) => void> = new Set();
   private errorHandlers: Set<(error: Event) => void> = new Set();
-  private closeHandlers: Set<(event: CloseEvent) => void> = new Set();
+  private closeHandlers: Set<() => void> = new Set();
   private openHandlers: Set<() => void> = new Set();
   private subscribedTrackers: Set<string> = new Set();
 
@@ -52,57 +50,70 @@ export class LiveWebSocket {
    */
   private connect(): void {
     const token = this.getAuthToken();
-    
     if (!token) {
-      console.error('No auth token found. Cannot connect to WebSocket.');
+      console.error('No auth token found. Cannot connect to Socket.io.');
       return;
     }
 
-    // Construct WebSocket URL with token
-    const wsUrl = `${API_CONFIG.WS_URL}${API_ENDPOINTS.WS_LIVE}?token=${token}`;
-    
-    this.ws = new WebSocket(wsUrl);
+    this.socket = io(API_CONFIG.WS_URL, {
+      transports: ['websocket'],
+      auth: { token },
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 3000,
+    });
 
-    this.ws.onopen = () => {
-      console.log('WebSocket connected');
-      this.reconnectAttempts = 0;
-      
+    this.socket.on('connect', () => {
       // Resubscribe to all trackers
-      this.subscribedTrackers.forEach(trackerId => {
+      this.subscribedTrackers.forEach((trackerId) => {
         this.subscribe(trackerId);
       });
+      this.openHandlers.forEach((handler) => handler());
+    });
 
-      // Call open handlers
-      this.openHandlers.forEach(handler => handler());
-    };
+    this.socket.on('POSITION_UPDATE', (payload: any) => {
+      const msg: LivePositionMessage = {
+        trackerId: payload.trackerId,
+        latitude: payload.latitude,
+        longitude: payload.longitude,
+        speed: payload.speed ?? 0,
+        eventType: payload.eventType ?? 'position',
+        timestamp: payload.timestamp,
+      };
+      this.messageHandlers.forEach((handler) => handler(msg));
+    });
 
-    this.ws.onmessage = (event) => {
-      try {
-        const message = JSON.parse(event.data) as WebSocketMessage;
-        this.messageHandlers.forEach(handler => handler(message));
-      } catch (error) {
-        console.error('Failed to parse WebSocket message:', error);
+    this.socket.on('ALERT', (payload: any) => {
+      // Map geofence alerts to GeofenceEventMessage when possible
+      if (payload.geofenceId && (payload.eventType === 'enter' || payload.eventType === 'exit')) {
+        const ev: GeofenceEventMessage = {
+          trackerId: payload.trackerId,
+          geofenceId: payload.geofenceId,
+          eventType: payload.eventType,
+          timestamp: payload.timestamp,
+        };
+        this.messageHandlers.forEach((handler) => handler(ev));
       }
-    };
+    });
 
-    this.ws.onerror = (error) => {
-      console.error('WebSocket error:', error);
-      this.errorHandlers.forEach(handler => handler(error));
-    };
+    this.socket.on('disconnect', () => {
+      this.closeHandlers.forEach((handler) => handler());
+    });
 
-    this.ws.onclose = (event) => {
-      console.log('WebSocket closed:', event.code, event.reason);
-      this.closeHandlers.forEach(handler => handler(event));
-      
-      // Attempt to reconnect
-      if (this.reconnectAttempts < this.maxReconnectAttempts) {
-        this.reconnectAttempts++;
-        console.log(`Reconnecting... Attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts}`);
-        setTimeout(() => this.connect(), this.reconnectDelay);
-      } else {
-        console.error('Max reconnection attempts reached');
-      }
-    };
+    this.socket.on('connect_error', (err: any) => {
+      console.error('Socket.io error:', err);
+      this.errorHandlers.forEach((handler) => handler(err));
+    });
+  }
+
+  /**
+   * Ensure a connection exists once a token is available.
+   * Safe to call multiple times.
+   */
+  public ensureConnected(): void {
+    if (!this.socket || !this.socket.connected) {
+      this.connect();
+    }
   }
 
   /**
@@ -116,15 +127,16 @@ export class LiveWebSocket {
    * Subscribe to a tracker's live updates
    */
   public subscribe(trackerId: string): void {
-    if (this.ws?.readyState === WebSocket.OPEN) {
-      const message: SubscribeMessage = {
-        type: 'subscribe',
-        trackerId,
-      };
-      this.ws.send(JSON.stringify(message));
+    // Attempt connection if not yet connected but token may now exist
+    if (!this.socket) {
+      this.ensureConnected();
+    }
+
+    if (this.socket?.connected) {
+      this.socket.emit('subscribeTracker', { trackerId });
       this.subscribedTrackers.add(trackerId);
     } else {
-      console.warn('WebSocket not open. Subscription will be attempted on reconnect.');
+      console.warn('Socket.io not connected. Subscription will be attempted on reconnect.');
       this.subscribedTrackers.add(trackerId);
     }
   }
@@ -133,12 +145,8 @@ export class LiveWebSocket {
    * Unsubscribe from a tracker's live updates
    */
   public unsubscribe(trackerId: string): void {
-    if (this.ws?.readyState === WebSocket.OPEN) {
-      const message: UnsubscribeMessage = {
-        type: 'unsubscribe',
-        trackerId,
-      };
-      this.ws.send(JSON.stringify(message));
+    if (this.socket?.connected) {
+      this.socket.emit('unsubscribeTracker', { trackerId });
     }
     this.subscribedTrackers.delete(trackerId);
   }
@@ -163,7 +171,7 @@ export class LiveWebSocket {
   /**
    * Register a close handler
    */
-  public onClose(handler: (event: CloseEvent) => void): () => void {
+  public onClose(handler: () => void): () => void {
     this.closeHandlers.add(handler);
     return () => this.closeHandlers.delete(handler);
   }
@@ -180,17 +188,16 @@ export class LiveWebSocket {
    * Check if WebSocket is connected
    */
   public isConnected(): boolean {
-    return this.ws?.readyState === WebSocket.OPEN;
+    return !!this.socket?.connected;
   }
 
   /**
    * Close WebSocket connection
    */
   public disconnect(): void {
-    this.reconnectAttempts = this.maxReconnectAttempts; // Prevent reconnection
     this.subscribedTrackers.clear();
-    this.ws?.close();
-    this.ws = null;
+    this.socket?.disconnect();
+    this.socket = null;
   }
 
   /**

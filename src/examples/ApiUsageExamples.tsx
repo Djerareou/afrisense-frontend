@@ -33,16 +33,9 @@ export function LoginExample() {
 
     try {
       const response = await authApi.login({ email, password });
-      
-      // Store token
-      localStorage.setItem('auth_token', response.accessToken);
-      
-      // Store user data
-      localStorage.setItem('user_data', JSON.stringify({
-        id: response.id,
-        name: response.fullName,
-        email: response.email,
-      }));
+      // Response shape: { token, user: { id, email, role } }
+      localStorage.setItem('auth_token', response.token);
+      localStorage.setItem('user_data', JSON.stringify(response.user));
 
       // Navigate to dashboard
       window.location.href = '/';
@@ -104,14 +97,15 @@ export function DevicesList() {
     }
   };
 
-  const addDevice = async (imei: string, model: string, simNumber: string) => {
-    try {
-      const newDevice = await devicesApi.create({ imei, model, simNumber });
-      setDevices([...devices, newDevice]);
-    } catch (err) {
-      console.error('Failed to add device:', err);
-    }
-  };
+  // Example create function (uncomment to use)
+  // const addDevice = async (imei: string, model: string, simNumber: string) => {
+  //   try {
+  //     const newDevice = await devicesApi.create({ imei, model, simNumber });
+  //     setDevices([...devices, newDevice]);
+  //   } catch (err) {
+  //     console.error('Failed to add device:', err);
+  //   }
+  // };
 
   if (loading) return <div>Loading devices...</div>;
   if (error) return <div className="error">{error}</div>;
@@ -316,19 +310,20 @@ export function GeofenceManager({ trackerId }: { trackerId: string }) {
     }
   };
 
-  const createGeofence = async (name: string, lat: number, lng: number, radius: number) => {
-    try {
-      const newGeofence = await geofencesApi.create({
-        trackerId,
-        name,
-        type: 'circle',
-        coordinates: { latitude: lat, longitude: lng, radius },
-      });
-      setGeofences([...geofences, newGeofence]);
-    } catch (err) {
-      console.error('Failed to create geofence:', err);
-    }
-  };
+  // Example create function (uncomment to use)
+  // const createGeofence = async (name: string, lat: number, lng: number, radius: number) => {
+  //   try {
+  //     const newGeofence = await geofencesApi.create({
+  //       trackerId,
+  //       name,
+  //       type: 'circle',
+  //       coordinates: { latitude: lat, longitude: lng, radius },
+  //     });
+  //     setGeofences([...geofences, newGeofence]);
+  //   } catch (err) {
+  //     console.error('Failed to create geofence:', err);
+  //   }
+  // };
 
   if (loading) return <div>Loading geofences...</div>;
 

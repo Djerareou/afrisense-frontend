@@ -3,11 +3,19 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from '../auth/auth.context';
 import Login from '../auth/pages/Login';
 import Register from '../auth/pages/Register';
+import ProtectedRoute from '../auth/ProtectedRoute';
+import Alerts from '../pages/Alerts';
+import Geofences from '../user/pages/geofences';
+import Devices from '../user/pages/devices';
+import TrackerDetails from '../user/pages/tracker/[id]';
+import Subscriptions from '../user/pages/subscriptions';
 import Header from '../components/layout/Header';
 import Footer from '../components/layout/Footer';
 import TrackerList from '../components/tracking/TrackerList';
 import AlertsPanel from '../components/alerts/AlertsPanel';
 import MapView from '../components/map/MapView';
+
+
 
 function Dashboard() {
   const [selectedTrackerId, setSelectedTrackerId] = useState('car1');
@@ -154,17 +162,71 @@ function Dashboard() {
       </div>
   );
 }
-
-export function App() {
+export default function App() {
   return (
-    <BrowserRouter>
-      <AuthProvider>
-        <Routes>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-        </Routes>
-      </AuthProvider>
-    </BrowserRouter>
+<BrowserRouter>
+  <AuthProvider>
+    <Routes>
+      {/* PUBLIC */}
+      <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Register />} />
+
+      {/* PROTECTED */}
+      <Route
+        path="/"
+        element={
+          <ProtectedRoute>
+            <Dashboard />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/alerts"
+        element={
+          <ProtectedRoute>
+            <Alerts />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/geofences"
+        element={
+          <ProtectedRoute>
+            <Geofences />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/devices"
+        element={
+          <ProtectedRoute>
+            <Devices />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/subscriptions"
+        element={
+          <ProtectedRoute>
+            <Subscriptions />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/tracker/:id"
+        element={
+          <ProtectedRoute>
+            <TrackerDetails />
+          </ProtectedRoute>
+        }
+      />
+    </Routes>
+  </AuthProvider>
+</BrowserRouter>
   );
 }

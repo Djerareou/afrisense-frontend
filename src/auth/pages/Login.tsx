@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { Radio, Mail, Lock, Eye, EyeOff, ArrowRight, MapPin, Activity, Shield, Zap } from 'lucide-react';
+// import Turnstile from '@/components/security/Turnstile';
+import { API_CONFIG, API_ENDPOINTS } from '@/api/config';
 import { useAuth } from '../auth.context';
 
 export default function Login() {
@@ -15,6 +17,8 @@ export default function Login() {
     email: '',
     password: ''
   });
+  // TEMP: Disable CAPTCHA for testing
+  // const [captchaToken, setCaptchaToken] = useState<string | null>(null);
 
   // Redirect if already authenticated
   useEffect(() => {
@@ -30,7 +34,7 @@ export default function Login() {
     setIsLoading(true);
 
     try {
-      await login(formData.email, formData.password, rememberMe);
+  await login(formData.email, formData.password, rememberMe);
       // Navigation handled by AuthContext
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erreur de connexion');
@@ -40,22 +44,18 @@ export default function Login() {
   };
 
   // OAuth handlers - À connecter avec votre backend plus tard
-  const handleGoogleLogin = () => {
-    // TODO: Rediriger vers votre backend OAuth Google
-    // window.location.href = 'https://votre-backend.com/auth/google';
-    console.log('Google OAuth - À implémenter avec le backend');
-  };
+const handleGoogleLogin = () => {
+window.location.href = `${API_CONFIG.BASE_URL}/api/auth/google/authorize`;
+};
+
+
 
   const handleMicrosoftLogin = () => {
-    // TODO: Rediriger vers votre backend OAuth Microsoft
-    // window.location.href = 'https://votre-backend.com/auth/microsoft';
-    console.log('Microsoft OAuth - À implémenter avec le backend');
+    window.location.href = `${API_CONFIG.BASE_URL}${API_ENDPOINTS.AUTH_OAUTH_MICROSOFT}`;
   };
 
   const handleAppleLogin = () => {
-    // TODO: Rediriger vers votre backend OAuth Apple
-    // window.location.href = 'https://votre-backend.com/auth/apple';
-    console.log('Apple OAuth - À implémenter avec le backend');
+    window.location.href = `${API_CONFIG.BASE_URL}${API_ENDPOINTS.AUTH_OAUTH_APPLE}`;
   };
 
   return (
@@ -163,6 +163,11 @@ export default function Login() {
               </a>
             </div>
 
+            {/* CAPTCHA (TEMP: disabled) */}
+            {/* <div className="pt-2">
+              <Turnstile onVerify={(t) => setCaptchaToken(t)} onExpire={() => setCaptchaToken(null)} onError={() => setCaptchaToken(null)} />
+            </div> */}
+
             {/* Submit Button */}
             <button
               type="submit"
@@ -243,13 +248,23 @@ export default function Login() {
       </div>
 
       {/* Right Side - Hero Section */}
-      <div className="hidden lg:flex lg:w-3/5 relative bg-gradient-to-br from-[#3B6EA5] via-[#4a7db5] to-[#3B6EA5] overflow-hidden">
-        {/* Animated Background */}
-        <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-white/10"></div>
-        <div className="absolute inset-0 opacity-10">
-          <div className="absolute top-20 left-20 w-72 h-72 bg-[#00BFA6] rounded-full blur-3xl animate-pulse"></div>
-          <div className="absolute bottom-20 right-20 w-96 h-96 bg-[#00d4b8] rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
-        </div>
+      <div className="hidden lg:flex lg:w-3/5 relative overflow-hidden bg-[#1a2332]">
+        {/* Professional 3D GPS tracking background */}
+        <img
+          src="/images/tracking-hero.jpg"
+          alt="Suivi GPS en temps réel - vue aérienne"
+          className="absolute inset-0 w-full h-full object-cover pointer-events-none blur-sm"
+          onError={(e) => {
+            // Fallback to SVG if JPG not available
+            e.currentTarget.src = '/images/tracking-hero.svg';
+          }}
+        />
+
+        {/* Overlay gradient for better text readability and brand consistency */}
+        <div className="absolute inset-0 bg-gradient-to-br from-[#0d1b2e]/70 via-[#1a2842]/50 to-[#00BFA6]/20"></div>
+        
+        {/* Subtle vignette effect */}
+        <div className="absolute inset-0 bg-gradient-to-br from-black/30 via-transparent to-black/20"></div>
 
         {/* Content */}
         <div className="relative z-10 flex flex-col justify-center px-12 xl:px-20 py-12 text-white w-full">

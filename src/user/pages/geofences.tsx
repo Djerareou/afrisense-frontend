@@ -1,6 +1,8 @@
 import { useState } from 'react';
-import { MapPin, Plus, Circle, Edit, Trash2, Zap, Bell, TrendingUp, Calendar, Shield, ChevronDown, ChevronUp, Wifi, CheckCircle, PauseCircle, Target } from 'lucide-react';
-import { MapContainer, TileLayer, Circle as LeafletCircle, Popup, Marker } from 'react-leaflet';
+import React from 'react';
+import { useNavigate } from 'react-router-dom';
+import { MapPin, Plus, Circle, Edit, Trash2, Zap, Bell, TrendingUp, Calendar, Shield, ChevronDown, ChevronUp, Wifi, Target, X, Hexagon } from 'lucide-react';
+import { MapContainer, TileLayer, Circle as LeafletCircle, Popup, Marker, useMapEvents, Polygon } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 
@@ -16,7 +18,7 @@ interface Geofence {
   id: string;
   name: string;
   tracker: string;
-  type: 'circle';
+  type: 'circle' | 'hexagon';
   center: { lat: number; lng: number };
   radius: number;
   status: 'active' | 'inactive';
@@ -29,10 +31,37 @@ interface Geofence {
 }
 
 export default function GeofencesPage() {
+  const navigate = useNavigate();
   const [expandedGeofence, setExpandedGeofence] = useState<string | null>(null);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showFullMapView, setShowFullMapView] = useState(false);
+  const [newGeofence, setNewGeofence] = useState({
+    name: '',
+    tracker: '',
+    type: 'circle' as 'circle' | 'hexagon',
+    radius: 1000,
+    color: '#00BFA6',
+    alertOnEntry: true,
+    alertOnExit: false,
+    description: '',
+    latitude: '',
+    longitude: '',
+  });
+  const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number } | null>(null);
+  const [errors, setErrors] = useState<{ [key: string]: string }>({});
+  
+  // Available trackers list
+  const availableTrackers = [
+    'Toyota Camry',
+    'Honda Civic',
+    'Mercedes Sprinter',
+    'Ford Transit',
+    'Nissan Patrol',
+    'Land Cruiser',
+  ];
   
   // Mock data
-  const [geofences] = useState<Geofence[]>([
+  const [geofences, setGeofences] = useState<Geofence[]>([
     {
       id: '1',
       name: 'Bureau N\'Djamena',
@@ -96,6 +125,125 @@ export default function GeofencesPage() {
   ]);
 
   const activeGeofences = geofences.filter(g => g.status === 'active').length;
+  const recentAlerts = geofences.filter(g => g.lastEvent !== 'Aucun événement').length;
+
+  // Handler functions
+  const validateForm = () => {
+    const newErrors: { [key: string]: string } = {};
+    
+    if (!newGeofence.name.trim()) {
+      newErrors.name = 'Le nom est requis';
+    }
+    if (!newGeofence.tracker.trim()) {
+      newErrors.tracker = 'Le tracker est requis';
+    }
+    
+    // Validate coordinates
+    const lat = parseFloat(newGeofence.latitude);
+    const lng = parseFloat(newGeofence.longitude);
+    
+    if (!newGeofence.latitude || isNaN(lat)) {
+      newErrors.latitude = 'Latitude invalide';
+    } else if (lat < -90 || lat > 90) {
+      newErrors.latitude = 'La latitude doit être entre -90 et 90';
+    }
+    
+    if (!newGeofence.longitude || isNaN(lng)) {
+      newErrors.longitude = 'Longitude invalide';
+    } else if (lng < -180 || lng > 180) {
+      newErrors.longitude = 'La longitude doit être entre -180 et 180';
+    }
+    
+    if (newGeofence.radius < 100) {
+      newErrors.radius = 'Le rayon minimum est de 100m';
+    }
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleCreateGeofence = () => {
+    if (!validateForm()) return;
+    
+    const center = {
+      lat: parseFloat(newGeofence.latitude),
+      lng: parseFloat(newGeofence.longitude),
+    };
+    
+    const newGeo: Geofence = {
+      id: Date.now().toString(),
+      name: newGeofence.name,
+      tracker: newGeofence.tracker,
+      type: newGeofence.type,
+      center: center,
+      radius: newGeofence.radius,
+      status: 'active',
+      color: newGeofence.color,
+      alertOnEntry: newGeofence.alertOnEntry,
+      alertOnExit: newGeofence.alertOnExit,
+      devicesInside: 0,
+      lastEvent: 'Aucun événement',
+      createdAt: new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }),
+    };
+    
+    setGeofences([...geofences, newGeo]);
+    handleCloseModal();
+  };
+
+  const handleCloseModal = () => {
+    setShowCreateModal(false);
+    setNewGeofence({
+      name: '',
+      tracker: '',
+      type: 'circle',
+      radius: 1000,
+      color: '#00BFA6',
+      alertOnEntry: true,
+      alertOnExit: false,
+      description: '',
+      latitude: '',
+      longitude: '',
+    });
+    setMapCenter(null);
+    setErrors({});
+  };
+
+  // Generate hexagon points
+  const getHexagonPoints = (center: { lat: number; lng: number }, radius: number): [number, number][] => {
+    const points: [number, number][] = [];
+    const earthRadius = 6371000; // meters
+    
+    for (let i = 0; i < 6; i++) {
+      const angle = (Math.PI / 3) * i;
+      const dx = radius * Math.cos(angle);
+      const dy = radius * Math.sin(angle);
+      
+      const lat = center.lat + (dy / earthRadius) * (180 / Math.PI);
+      const lng = center.lng + (dx / earthRadius) * (180 / Math.PI) / Math.cos(center.lat * Math.PI / 180);
+      
+      points.push([lat, lng]);
+    }
+    
+    return points;
+  };
+
+  // Map click handler component
+  const MapClickHandler = () => {
+    useMapEvents({
+      click(e) {
+        const newLat = e.latlng.lat.toFixed(6);
+        const newLng = e.latlng.lng.toFixed(6);
+        setNewGeofence({ 
+          ...newGeofence, 
+          latitude: newLat,
+          longitude: newLng,
+        });
+        setMapCenter({ lat: e.latlng.lat, lng: e.latlng.lng });
+        setErrors({ ...errors, latitude: '', longitude: '' });
+      },
+    });
+    return null;
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50/30 to-teal-50/30 py-8 px-4 sm:px-6 lg:px-8">
@@ -104,7 +252,12 @@ export default function GeofencesPage() {
         <div className="mb-8 relative">
           {/* Breadcrumb */}
           <div className="flex items-center gap-2 text-sm text-gray-500 mb-4 animate-fadeInUp">
-            <span className="hover:text-[#00BFA6] transition-colors cursor-pointer">Tableau de bord</span>
+            <span 
+              onClick={() => navigate('/')} 
+              className="hover:text-[#00BFA6] transition-colors cursor-pointer"
+            >
+              Tableau de bord
+            </span>
             <span>›</span>
             <span className="text-[#00BFA6] font-semibold">Géo-clôtures</span>
           </div>
@@ -119,11 +272,17 @@ export default function GeofencesPage() {
               </p>
             </div>
             <div className="flex gap-3">
-              <button className="flex items-center gap-2 border-2 border-gray-200 text-gray-700 px-5 py-3 rounded-xl hover:border-[#00BFA6] hover:text-[#00BFA6] transition-all duration-300 font-semibold hover:scale-105 group">
+              <button 
+                onClick={() => setShowFullMapView(true)}
+                className="flex items-center gap-2 border-2 border-gray-200 text-gray-700 px-5 py-3 rounded-xl hover:border-[#00BFA6] hover:text-[#00BFA6] transition-all duration-300 font-semibold hover:scale-105 group"
+              >
                 <MapPin size={20} className="group-hover:animate-bounce" />
                 Voir la carte
               </button>
-              <button className="group flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[#00BFA6] to-[#00d4b8] text-white rounded-xl hover:shadow-2xl hover:scale-105 active:scale-95 transition-all duration-300 font-semibold shadow-lg shadow-[#00BFA6]/30">
+              <button 
+                onClick={() => setShowCreateModal(true)}
+                className="group flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[#00BFA6] to-[#00d4b8] text-white rounded-xl hover:shadow-2xl hover:scale-105 active:scale-95 transition-all duration-300 font-semibold shadow-lg shadow-[#00BFA6]/30"
+              >
                 <Plus size={20} className="group-hover:rotate-90 transition-transform duration-300" />
                 Nouvelle zone
               </button>
@@ -211,50 +370,100 @@ export default function GeofencesPage() {
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
               />
               
-              {/* Render all geofences as circles */}
+              {/* Render all geofences as circles or hexagons */}
               {geofences.map((geofence) => (
-                <LeafletCircle
-                  key={geofence.id}
-                  center={[geofence.center.lat, geofence.center.lng]}
-                  radius={geofence.radius}
-                  pathOptions={{
-                    color: geofence.color,
-                    fillColor: geofence.color,
-                    fillOpacity: 0.2,
-                    weight: 3,
-                    opacity: geofence.status === 'active' ? 0.8 : 0.4,
-                  }}
-                >
-                  <Popup>
-                    <div className="p-2">
-                      <div className="flex items-center gap-2 mb-2">
-                        <div
-                          className="w-4 h-4 rounded-full"
-                          style={{ backgroundColor: geofence.color }}
-                        ></div>
-                        <h4 className="font-bold text-gray-900">{geofence.name}</h4>
-                      </div>
-                      <p className="text-sm text-gray-600 mb-1">
-                        <span className="font-semibold">Tracker:</span> {geofence.tracker}
-                      </p>
-                      <p className="text-sm text-gray-600 mb-1">
-                        <span className="font-semibold">Rayon:</span> {geofence.radius}m
-                      </p>
-                      <p className="text-sm text-gray-600 mb-1">
-                        <span className="font-semibold">Appareils:</span> {geofence.devicesInside}
-                      </p>
-                      <span
-                        className={`inline-block px-2 py-1 rounded-full text-xs font-semibold mt-2 ${
-                          geofence.status === 'active'
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-gray-100 text-gray-800'
-                        }`}
-                      >
-                        {geofence.status === 'active' ? 'Active' : 'Inactive'}
-                      </span>
-                    </div>
-                  </Popup>
-                </LeafletCircle>
+                <React.Fragment key={geofence.id}>
+                  {geofence.type === 'circle' ? (
+                    <LeafletCircle
+                      center={[geofence.center.lat, geofence.center.lng]}
+                      radius={geofence.radius}
+                      pathOptions={{
+                        color: geofence.color,
+                        fillColor: geofence.color,
+                        fillOpacity: 0.2,
+                        weight: 3,
+                        opacity: geofence.status === 'active' ? 0.8 : 0.4,
+                      }}
+                    >
+                      <Popup>
+                        <div className="p-2">
+                          <div className="flex items-center gap-2 mb-2">
+                            <div
+                              className="w-4 h-4 rounded-full"
+                              style={{ backgroundColor: geofence.color }}
+                            ></div>
+                            <h4 className="font-bold text-gray-900">{geofence.name}</h4>
+                          </div>
+                          <p className="text-sm text-gray-600 mb-1">
+                            <span className="font-semibold">Tracker:</span> {geofence.tracker}
+                          </p>
+                          <p className="text-sm text-gray-600 mb-1">
+                            <span className="font-semibold">Forme:</span> Cercle
+                          </p>
+                          <p className="text-sm text-gray-600 mb-1">
+                            <span className="font-semibold">Rayon:</span> {geofence.radius}m
+                          </p>
+                          <p className="text-sm text-gray-600 mb-1">
+                            <span className="font-semibold">Appareils:</span> {geofence.devicesInside}
+                          </p>
+                          <span
+                            className={`inline-block px-2 py-1 rounded-full text-xs font-semibold mt-2 ${
+                              geofence.status === 'active'
+                                ? 'bg-green-100 text-green-800'
+                                : 'bg-gray-100 text-gray-800'
+                            }`}
+                          >
+                            {geofence.status === 'active' ? 'Active' : 'Inactive'}
+                          </span>
+                        </div>
+                      </Popup>
+                    </LeafletCircle>
+                  ) : (
+                    <Polygon
+                      positions={getHexagonPoints(geofence.center, geofence.radius)}
+                      pathOptions={{
+                        color: geofence.color,
+                        fillColor: geofence.color,
+                        fillOpacity: 0.2,
+                        weight: 3,
+                        opacity: geofence.status === 'active' ? 0.8 : 0.4,
+                      }}
+                    >
+                      <Popup>
+                        <div className="p-2">
+                          <div className="flex items-center gap-2 mb-2">
+                            <div
+                              className="w-4 h-4 rounded-full"
+                              style={{ backgroundColor: geofence.color }}
+                            ></div>
+                            <h4 className="font-bold text-gray-900">{geofence.name}</h4>
+                          </div>
+                          <p className="text-sm text-gray-600 mb-1">
+                            <span className="font-semibold">Tracker:</span> {geofence.tracker}
+                          </p>
+                          <p className="text-sm text-gray-600 mb-1">
+                            <span className="font-semibold">Forme:</span> Hexagone
+                          </p>
+                          <p className="text-sm text-gray-600 mb-1">
+                            <span className="font-semibold">Rayon:</span> {geofence.radius}m
+                          </p>
+                          <p className="text-sm text-gray-600 mb-1">
+                            <span className="font-semibold">Appareils:</span> {geofence.devicesInside}
+                          </p>
+                          <span
+                            className={`inline-block px-2 py-1 rounded-full text-xs font-semibold mt-2 ${
+                              geofence.status === 'active'
+                                ? 'bg-green-100 text-green-800'
+                                : 'bg-gray-100 text-gray-800'
+                            }`}
+                          >
+                            {geofence.status === 'active' ? 'Active' : 'Inactive'}
+                          </span>
+                        </div>
+                      </Popup>
+                    </Polygon>
+                  )}
+                </React.Fragment>
               ))}
 
               {/* Render markers at center of each geofence */}
@@ -498,7 +707,10 @@ export default function GeofencesPage() {
 
                     {/* Action Buttons */}
                     <div className="flex gap-3">
-                      <button className="flex-1 px-4 py-2.5 bg-gradient-to-r from-[#00BFA6] to-[#3B6EA5] text-white rounded-lg hover:shadow-lg transition-all font-semibold">
+                      <button 
+                        onClick={() => setShowFullMapView(true)}
+                        className="flex-1 px-4 py-2.5 bg-gradient-to-r from-[#00BFA6] to-[#3B6EA5] text-white rounded-lg hover:shadow-lg transition-all font-semibold"
+                      >
                         Voir sur la carte
                       </button>
                       <button className="flex-1 px-4 py-2.5 border-2 border-[#00BFA6] text-[#00BFA6] rounded-lg hover:bg-[#00BFA6] hover:text-white transition-all font-semibold">
@@ -589,6 +801,451 @@ export default function GeofencesPage() {
           </div>
         </div>
       </div>
+
+      {/* Create Geofence Modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden animate-slideUp">
+            {/* Modal Header */}
+            <div className="bg-gradient-to-r from-[#00BFA6] to-[#3B6EA5] p-6 text-white">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
+                    <Plus size={24} />
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-bold">Créer une nouvelle zone</h2>
+                    <p className="text-white/80 text-sm mt-1">Définissez votre géo-clôture sur la carte</p>
+                  </div>
+                </div>
+                <button
+                  onClick={handleCloseModal}
+                  className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+                >
+                  <X size={24} />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 overflow-y-auto max-h-[calc(90vh-180px)]">
+              <div className="grid md:grid-cols-2 gap-6">
+                {/* Left Column - Form */}
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Nom de la zone *
+                    </label>
+                    <input
+                      type="text"
+                      value={newGeofence.name}
+                      onChange={(e) => {
+                        setNewGeofence({ ...newGeofence, name: e.target.value });
+                        setErrors({ ...errors, name: '' });
+                      }}
+                      placeholder="Ex: Bureau principal"
+                      className={`w-full px-4 py-3 border-2 ${errors.name ? 'border-red-300' : 'border-gray-200'} rounded-xl focus:border-[#00BFA6] focus:outline-none transition-colors`}
+                    />
+                    {errors.name && <p className="text-red-500 text-sm mt-1">{errors.name}</p>}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Tracker associé *
+                    </label>
+                    <div className="relative">
+                      <select
+                        value={newGeofence.tracker}
+                        onChange={(e) => {
+                          setNewGeofence({ ...newGeofence, tracker: e.target.value });
+                          setErrors({ ...errors, tracker: '' });
+                        }}
+                        className={`w-full pl-11 pr-10 py-3 border-2 ${errors.tracker ? 'border-red-300' : 'border-gray-200'} rounded-xl focus:border-[#00BFA6] focus:outline-none transition-colors appearance-none bg-white cursor-pointer`}
+                      >
+                        <option value="">Sélectionnez un tracker</option>
+                        {availableTrackers.map((tracker) => (
+                          <option key={tracker} value={tracker}>
+                            {tracker}
+                          </option>
+                        ))}
+                      </select>
+                      <MapPin size={18} className="absolute left-3.5 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" />
+                      <ChevronDown size={18} className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" />
+                    </div>
+                    {errors.tracker && <p className="text-red-500 text-sm mt-1">{errors.tracker}</p>}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Description
+                    </label>
+                    <textarea
+                      value={newGeofence.description}
+                      onChange={(e) => setNewGeofence({ ...newGeofence, description: e.target.value })}
+                      placeholder="Description de la zone (optionnel)"
+                      rows={3}
+                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-[#00BFA6] focus:outline-none transition-colors resize-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Forme de la zone *
+                    </label>
+                    <div className="grid grid-cols-2 gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setNewGeofence({ ...newGeofence, type: 'circle' })}
+                        className={`flex items-center justify-center gap-2 p-4 border-2 rounded-xl transition-all ${
+                          newGeofence.type === 'circle'
+                            ? 'border-[#00BFA6] bg-[#00BFA6]/5 text-[#00BFA6]'
+                            : 'border-gray-200 hover:border-gray-300'
+                        }`}
+                      >
+                        <Circle size={20} />
+                        <span className="font-semibold">Cercle</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setNewGeofence({ ...newGeofence, type: 'hexagon' })}
+                        className={`flex items-center justify-center gap-2 p-4 border-2 rounded-xl transition-all ${
+                          newGeofence.type === 'hexagon'
+                            ? 'border-[#00BFA6] bg-[#00BFA6]/5 text-[#00BFA6]'
+                            : 'border-gray-200 hover:border-gray-300'
+                        }`}
+                      >
+                        <Hexagon size={20} />
+                        <span className="font-semibold">Hexagone</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Rayon (mètres) *
+                    </label>
+                    <input
+                      type="number"
+                      value={newGeofence.radius}
+                      onChange={(e) => {
+                        setNewGeofence({ ...newGeofence, radius: parseInt(e.target.value) || 0 });
+                        setErrors({ ...errors, radius: '' });
+                      }}
+                      min="100"
+                      step="100"
+                      className={`w-full px-4 py-3 border-2 ${errors.radius ? 'border-red-300' : 'border-gray-200'} rounded-xl focus:border-[#00BFA6] focus:outline-none transition-colors`}
+                    />
+                    {errors.radius && <p className="text-red-500 text-sm mt-1">{errors.radius}</p>}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Latitude *
+                      </label>
+                      <input
+                        type="text"
+                        value={newGeofence.latitude}
+                        onChange={(e) => {
+                          setNewGeofence({ ...newGeofence, latitude: e.target.value });
+                          setErrors({ ...errors, latitude: '' });
+                          // Update map center if valid
+                          const lat = parseFloat(e.target.value);
+                          const lng = parseFloat(newGeofence.longitude);
+                          if (!isNaN(lat) && !isNaN(lng)) {
+                            setMapCenter({ lat, lng });
+                          }
+                        }}
+                        placeholder="Ex: 12.1348"
+                        className={`w-full px-4 py-3 border-2 ${errors.latitude ? 'border-red-300' : 'border-gray-200'} rounded-xl focus:border-[#00BFA6] focus:outline-none transition-colors font-mono`}
+                      />
+                      {errors.latitude && <p className="text-red-500 text-xs mt-1">{errors.latitude}</p>}
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Longitude *
+                      </label>
+                      <input
+                        type="text"
+                        value={newGeofence.longitude}
+                        onChange={(e) => {
+                          setNewGeofence({ ...newGeofence, longitude: e.target.value });
+                          setErrors({ ...errors, longitude: '' });
+                          // Update map center if valid
+                          const lat = parseFloat(newGeofence.latitude);
+                          const lng = parseFloat(e.target.value);
+                          if (!isNaN(lat) && !isNaN(lng)) {
+                            setMapCenter({ lat, lng });
+                          }
+                        }}
+                        placeholder="Ex: 15.0557"
+                        className={`w-full px-4 py-3 border-2 ${errors.longitude ? 'border-red-300' : 'border-gray-200'} rounded-xl focus:border-[#00BFA6] focus:outline-none transition-colors font-mono`}
+                      />
+                      {errors.longitude && <p className="text-red-500 text-xs mt-1">{errors.longitude}</p>}
+                    </div>
+                  </div>
+
+                  {mapCenter && (
+                    <div className="bg-gradient-to-r from-blue-50 to-teal-50 border-2 border-blue-200 rounded-xl p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <MapPin size={16} className="text-blue-600" />
+                        <p className="text-sm font-bold text-blue-800">✓ Position confirmée</p>
+                      </div>
+                      <p className="text-xs text-blue-600">
+                        La zone sera créée aux coordonnées spécifiées
+                      </p>
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Couleur de la zone
+                    </label>
+                    <div className="flex gap-3">
+                      {['#00BFA6', '#3B6EA5', '#FF6B6B', '#FFC107', '#9C27B0', '#4CAF50'].map((color) => (
+                        <button
+                          key={color}
+                          onClick={() => setNewGeofence({ ...newGeofence, color })}
+                          className={`w-12 h-12 rounded-xl transition-all ${
+                            newGeofence.color === color
+                              ? 'ring-4 ring-offset-2 ring-gray-400 scale-110'
+                              : 'hover:scale-105'
+                          }`}
+                          style={{ backgroundColor: color }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <label className="block text-sm font-semibold text-gray-700">
+                      Alertes
+                    </label>
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={newGeofence.alertOnEntry}
+                        onChange={(e) => setNewGeofence({ ...newGeofence, alertOnEntry: e.target.checked })}
+                        className="w-5 h-5 text-[#00BFA6] rounded focus:ring-[#00BFA6]"
+                      />
+                      <span className="text-gray-700">Alerter à l'entrée</span>
+                    </label>
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={newGeofence.alertOnExit}
+                        onChange={(e) => setNewGeofence({ ...newGeofence, alertOnExit: e.target.checked })}
+                        className="w-5 h-5 text-[#00BFA6] rounded focus:ring-[#00BFA6]"
+                      />
+                      <span className="text-gray-700">Alerter à la sortie</span>
+                    </label>
+                  </div>
+
+                  {errors.location && (
+                    <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+                      <p className="text-sm font-semibold text-red-800">{errors.location}</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Right Column - Map */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Aperçu de la position
+                  </label>
+                  <p className="text-xs text-gray-500 mb-3">
+                    Cliquez sur la carte pour sélectionner ou ajuster la position
+                  </p>
+                  <div className="h-[500px] rounded-xl overflow-hidden border-2 border-gray-200">
+                    <MapContainer
+                      center={[12.1348, 15.0557]}
+                      zoom={12}
+                      className="h-full w-full"
+                      style={{ zIndex: 0 }}
+                    >
+                      <TileLayer
+                        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                      />
+                      <MapClickHandler />
+                      {mapCenter && (
+                        <>
+                          <Marker position={[mapCenter.lat, mapCenter.lng]}>
+                            <Popup>
+                              <div className="text-center">
+                                <p className="font-bold">{newGeofence.name || 'Nouvelle zone'}</p>
+                                <p className="text-xs text-gray-600">Centre de la géo-clôture</p>
+                              </div>
+                            </Popup>
+                          </Marker>
+                          {newGeofence.type === 'circle' ? (
+                            <LeafletCircle
+                              center={[mapCenter.lat, mapCenter.lng]}
+                              radius={newGeofence.radius}
+                              pathOptions={{
+                                color: newGeofence.color,
+                                fillColor: newGeofence.color,
+                                fillOpacity: 0.2,
+                                weight: 3,
+                              }}
+                            />
+                          ) : (
+                            <Polygon
+                              positions={getHexagonPoints(mapCenter, newGeofence.radius)}
+                              pathOptions={{
+                                color: newGeofence.color,
+                                fillColor: newGeofence.color,
+                                fillOpacity: 0.2,
+                                weight: 3,
+                              }}
+                            />
+                          )}
+                        </>
+                      )}
+                    </MapContainer>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="border-t border-gray-200 p-6 bg-gray-50 flex gap-3 justify-end">
+              <button
+                onClick={handleCloseModal}
+                className="px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-100 transition-all font-semibold"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={handleCreateGeofence}
+                className="px-6 py-3 bg-gradient-to-r from-[#00BFA6] to-[#3B6EA5] text-white rounded-xl hover:shadow-xl transition-all font-semibold"
+              >
+                Créer la zone
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Full-Screen Map View Modal */}
+      {showFullMapView && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fadeIn">
+          <div className="w-full h-full bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between p-4 bg-gradient-to-r from-[#00BFA6] to-[#3B6EA5] text-white">
+              <div>
+                <h2 className="text-2xl font-bold">Carte complète des géo-clôtures</h2>
+                <p className="text-sm text-white/90 mt-1">Vue d'ensemble de toutes vos zones</p>
+              </div>
+              <button
+                onClick={() => setShowFullMapView(false)}
+                className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            {/* Full Map */}
+            <div className="flex-1">
+              <MapContainer
+                center={[12.1348, 15.0557]}
+                zoom={12}
+                style={{ height: '100%', width: '100%' }}
+                scrollWheelZoom={true}
+              >
+                <TileLayer
+                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                />
+                {geofences.map((geofence) => (
+                  <React.Fragment key={geofence.id}>
+                    {geofence.type === 'circle' ? (
+                      <LeafletCircle
+                        center={[geofence.center.lat, geofence.center.lng]}
+                        radius={geofence.radius}
+                        pathOptions={{
+                          color: geofence.color,
+                          fillColor: geofence.color,
+                          fillOpacity: 0.2,
+                          weight: 3,
+                        }}
+                      >
+                        <Popup>
+                          <div className="text-center">
+                            <h3 className="font-bold text-lg mb-1">{geofence.name}</h3>
+                            <p className="text-sm text-gray-600">Tracker: {geofence.tracker}</p>
+                            <p className="text-sm text-gray-600">Type: Cercle</p>
+                            <p className="text-sm text-gray-600">Rayon: {geofence.radius}m</p>
+                            <span className={`inline-block px-2 py-1 rounded-full text-xs font-semibold mt-2 ${
+                              geofence.status === 'active' 
+                                ? 'bg-green-100 text-green-700' 
+                                : 'bg-gray-100 text-gray-700'
+                            }`}>
+                              {geofence.status === 'active' ? 'Active' : 'Inactive'}
+                            </span>
+                          </div>
+                        </Popup>
+                      </LeafletCircle>
+                    ) : (
+                      <Polygon
+                        positions={getHexagonPoints(geofence.center, geofence.radius)}
+                        pathOptions={{
+                          color: geofence.color,
+                          fillColor: geofence.color,
+                          fillOpacity: 0.2,
+                          weight: 3,
+                        }}
+                      >
+                        <Popup>
+                          <div className="text-center">
+                            <h3 className="font-bold text-lg mb-1">{geofence.name}</h3>
+                            <p className="text-sm text-gray-600">Tracker: {geofence.tracker}</p>
+                            <p className="text-sm text-gray-600">Type: Hexagone</p>
+                            <p className="text-sm text-gray-600">Rayon: {geofence.radius}m</p>
+                            <span className={`inline-block px-2 py-1 rounded-full text-xs font-semibold mt-2 ${
+                              geofence.status === 'active' 
+                                ? 'bg-green-100 text-green-700' 
+                                : 'bg-gray-100 text-gray-700'
+                            }`}>
+                              {geofence.status === 'active' ? 'Active' : 'Inactive'}
+                            </span>
+                          </div>
+                        </Popup>
+                      </Polygon>
+                    )}
+                    <Marker position={[geofence.center.lat, geofence.center.lng]}>
+                      <Popup>
+                        <strong>{geofence.name}</strong>
+                      </Popup>
+                    </Marker>
+                  </React.Fragment>
+                ))}
+              </MapContainer>
+            </div>
+
+            {/* Footer with Stats */}
+            <div className="bg-gray-50 border-t border-gray-200 p-4">
+              <div className="flex items-center justify-around">
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-gray-900">{geofences.length}</p>
+                  <p className="text-xs text-gray-600 font-medium">Total Zones</p>
+                </div>
+                <div className="h-8 w-px bg-gray-300"></div>
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-green-600">{activeGeofences}</p>
+                  <p className="text-xs text-gray-600 font-medium">Actives</p>
+                </div>
+                <div className="h-8 w-px bg-gray-300"></div>
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-orange-600">{recentAlerts}</p>
+                  <p className="text-xs text-gray-600 font-medium">Alertes récentes</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

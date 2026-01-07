@@ -2,6 +2,10 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { Radio, Mail, Lock, Eye, EyeOff, User, Phone, MapPin, Activity, Shield, Zap, Check, X } from 'lucide-react';
 import { useAuth } from '../auth.context';
+import { isValidEmail, isAcceptablePassword, normalizeFullName } from '@/utils/validators';
+import { adaptBackendError } from '@/utils/errorAdapter';
+import { ApiError } from '@/api/http';
+// import Turnstile from '@/components/security/Turnstile';
 
 export default function Register() {
   const navigate = useNavigate();
@@ -11,7 +15,13 @@ export default function Register() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const [accountType, setAccountType] = useState<'individual' | 'business'>('individual');
+  const [success, setSuccess] = useState('');
+  const [backendErrors, setBackendErrors] = useState<Array<{ field: string; message: string }>>([]);
+  const [requestId, setRequestId] = useState<string | undefined>(undefined);
+  // TEMP: Disable CAPTCHA for testing
+  // const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<'fullName'|'email'|'phone'|'password'|'confirmPassword'|'role'|'acceptTerms', string>>>({});
+  const [role, setRole] = useState<'owner' | 'fleet_manager'>('owner');
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [formData, setFormData] = useState({
     fullName: '',
@@ -43,22 +53,70 @@ export default function Register() {
     setPasswordStrength(strength);
   }, [formData.password]);
 
+  // Derive a friendly, specific error message from backend response
+  const getFriendlyErrorMessage = (err: ApiError, details: Array<{ field?: string; message?: string }> = []) => {
+    const lower = (s?: string) => (s || '').toLowerCase();
+    // Email already exists: often 409 or a detail mentioning existence
+    const emailDetail = details.find(d => (d.field === 'email') && /(existe|already|taken|existant|duplicate|dupli)/i.test(d.message || ''));
+    if (err.status === 409 || emailDetail) {
+      return "Cet email existe déjà. Veuillez utiliser une autre adresse.";
+    }
+    // Validation errors: surface first detail message if available
+    if (Array.isArray(details) && details.length > 0) {
+      const first = details[0];
+      if (first?.message) return first.message;
+    }
+    // Specific common cases by message pattern
+    const msg = lower(err.message);
+    if (/password/.test(msg) && /(weak|format|invalid|complexity)/.test(msg)) {
+      return 'Le mot de passe ne répond pas aux exigences de sécurité.';
+    }
+    if (/phone|téléphone/.test(msg) && /(invalid|format)/.test(msg)) {
+      return 'Le numéro de téléphone est invalide.';
+    }
+    if (/role/.test(msg) && /(invalid|allowed)/.test(msg)) {
+      return 'Le rôle sélectionné n’est pas autorisé.';
+    }
+    // Default fallback avoiding generic "Bad Request"
+    return err.message && err.message !== 'Bad Request'
+      ? err.message
+      : 'Une erreur est survenue. Veuillez vérifier les champs et réessayer.';
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setSuccess('');
+    setBackendErrors([]);
+    setFieldErrors({});
 
     // Validation
+    const normalizedName = normalizeFullName(formData.fullName);
+    // Basic email validation using input type; avoid brittle regex here
+    if (!isValidEmail(formData.email)) {
+      setError('Email invalide');
+      return;
+    }
+    // Full name length 3–50
+    const nameLen = normalizedName.trim().length;
+    if (nameLen < 3 || nameLen > 50) {
+      setFieldErrors(prev => ({ ...prev, fullName: 'Le nom complet doit contenir entre 3 et 50 caractères.' }));
+      setError('Nom complet invalide');
+      return;
+    }
     if (formData.password !== formData.confirmPassword) {
       setError('Les mots de passe ne correspondent pas');
       return;
     }
 
     if (!acceptTerms) {
+      setFieldErrors(prev => ({ ...prev, acceptTerms: 'Vous devez accepter les conditions générales' }));
       setError('Vous devez accepter les conditions générales');
       return;
     }
 
-    if (passwordStrength < 2) {
+    if (!isAcceptablePassword(formData.password)) {
+      setFieldErrors(prev => ({ ...prev, password: 'Le mot de passe doit contenir des lettres, des chiffres et un caractère spécial, et au moins 8 caractères.' }));
       setError('Le mot de passe est trop faible');
       return;
     }
@@ -66,14 +124,62 @@ export default function Register() {
     setIsLoading(true);
 
     try {
-      await register(formData.email, formData.password, formData.fullName);
+      await register(formData.email, formData.password, normalizedName, {
+        phone: formData.phone || undefined,
+        role,
+        confirmPassword: formData.confirmPassword,
+        acceptTerms,
+  // captchaToken: captchaToken ?? undefined, // TEMP: disabled
+      });
+      setSuccess('Inscription réussie. Bienvenue sur AfriSense !');
       // Navigation handled by AuthContext
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erreur d'inscription");
+      if (err instanceof ApiError) {
+        const adapted = adaptBackendError(err.data);
+        // Field-level errors
+        setFieldErrors(adapted.fields);
+        setRequestId(adapted.requestId);
+        // Rendering strategy: for EMAIL_ALREADY_EXISTS show only under the email field
+        if (!err.status) {
+          setBackendErrors([]);
+          setError("Impossible de contacter le serveur. Vérifiez l'URL de l'API et que le backend est démarré.");
+        } else if (adapted.code === 'EMAIL_ALREADY_EXISTS') {
+          setBackendErrors([]);
+          setError(''); // prefer inline email field error only
+        } else if (adapted.code === 'VALIDATION_ERROR') {
+          setBackendErrors(Object.entries(adapted.fields).map(([field, message]) => ({ field, message: String(message) })));
+          setError(adapted.message || 'Erreur de validation');
+        } else {
+          setBackendErrors(Object.entries(adapted.fields).map(([field, message]) => ({ field, message: String(message) })));
+          setError(adapted.message || err.message || 'Une erreur est survenue.');
+        }
+      } else {
+        setError(err instanceof Error ? err.message : "Erreur d'inscription");
+      }
     } finally {
       setIsLoading(false);
     }
   };
+  // Auto-focus the first field with an error
+  useEffect(() => {
+    const order: Array<keyof typeof fieldErrors> = ['fullName','email','phone','password','confirmPassword','role','acceptTerms'];
+    const first = order.find((k) => fieldErrors[k]);
+    if (!first) return;
+    const idMap: Record<string, string> = {
+      fullName: 'fullName',
+      email: 'email',
+      phone: 'phone',
+      password: 'password',
+      confirmPassword: 'confirmPassword',
+      role: 'role-owner',
+      acceptTerms: 'acceptTerms'
+    };
+    const elId = idMap[first as string];
+    if (elId) {
+      const el = document.getElementById(elId) as (HTMLInputElement | HTMLButtonElement | null);
+      el?.focus();
+    }
+  }, [fieldErrors]);
 
   // OAuth handlers - À connecter avec votre backend plus tard
   const handleGoogleRegister = () => {
@@ -133,8 +239,25 @@ export default function Register() {
           <form onSubmit={handleSubmit} className="space-y-4 md:space-y-5">
             {/* Error Message */}
             {error && (
-              <div className="bg-red-50 border-2 border-red-200 rounded-xl p-4 animate-fadeInUp">
+              <div className="bg-red-50 border-2 border-red-200 rounded-xl p-4 animate-fadeInUp" aria-live="assertive">
                 <p className="text-sm text-red-600 font-medium">{error}</p>
+                {backendErrors.length > 0 && (
+                  <div className="mt-2 text-xs text-red-700 space-y-1">
+                    {backendErrors.map((e, idx) => (
+                      <span key={idx}>{e.field}: {e.message}</span>
+                    ))}
+                  </div>
+                )}
+                {/* Optional support info: requestId */}
+                {requestId && (
+                  <div className="mt-2 text-[11px] text-gray-500">ID requête: {requestId}</div>
+                )}
+              </div>
+            )}
+
+            {success && (
+              <div className="bg-green-50 border-2 border-green-200 rounded-xl p-4 animate-fadeInUp" aria-live="polite">
+                <p className="text-sm text-green-700 font-medium">{success}</p>
               </div>
             )}
 
@@ -152,10 +275,12 @@ export default function Register() {
                   type="text"
                   value={formData.fullName}
                   onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                  className="w-full pl-12 pr-4 py-3 md:py-3.5 bg-gray-50 border-2 border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:bg-white focus:border-[#00BFA6] focus:outline-none focus:ring-4 focus:ring-[#00BFA6]/10 transition-all font-medium"
+                  disabled={isLoading}
+                  className={`w-full pl-12 pr-4 py-3 md:py-3.5 bg-gray-50 border-2 rounded-xl text-gray-900 placeholder-gray-400 focus:bg-white focus:outline-none focus:ring-4 focus:ring-[#00BFA6]/10 transition-all font-medium ${fieldErrors.fullName ? 'border-red-400 focus:border-red-500' : 'border-gray-200 focus:border-[#00BFA6]'}`}
                   placeholder="Jean Dupont"
                   required
                 />
+                {fieldErrors.fullName && <p className="mt-2 text-xs text-red-600">{fieldErrors.fullName}</p>}
               </div>
             </div>
 
@@ -173,10 +298,13 @@ export default function Register() {
                   type="email"
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="w-full pl-12 pr-4 py-3 md:py-3.5 bg-gray-50 border-2 border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:bg-white focus:border-[#00BFA6] focus:outline-none focus:ring-4 focus:ring-[#00BFA6]/10 transition-all font-medium"
+                  // Prefer native validation, avoid brittle regex
+                  disabled={isLoading}
+                  className={`w-full pl-12 pr-4 py-3 md:py-3.5 bg-gray-50 border-2 rounded-xl text-gray-900 placeholder-gray-400 focus:bg-white focus:outline-none focus:ring-4 focus:ring-[#00BFA6]/10 transition-all font-medium ${fieldErrors.email ? 'border-red-400 focus:border-red-500' : 'border-gray-200 focus:border-[#00BFA6]'}`}
                   placeholder="jean@example.com"
                   required
                 />
+                {fieldErrors.email && <p className="mt-2 text-xs text-red-600">{fieldErrors.email}</p>}
               </div>
             </div>
 
@@ -194,9 +322,12 @@ export default function Register() {
                   type="tel"
                   value={formData.phone}
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  className="w-full pl-12 pr-4 py-3 md:py-3.5 bg-gray-50 border-2 border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:bg-white focus:border-[#00BFA6] focus:outline-none focus:ring-4 focus:ring-[#00BFA6]/10 transition-all font-medium"
-                  placeholder="+33 6 12 34 56 78"
+                  pattern="^[0-9]{8,15}$"
+                  disabled={isLoading}
+                  className={`w-full pl-12 pr-4 py-3 md:py-3.5 bg-gray-50 border-2 rounded-xl text-gray-900 placeholder-gray-400 focus:bg-white focus:outline-none focus:ring-4 focus:ring-[#00BFA6]/10 transition-all font-medium ${fieldErrors.phone ? 'border-red-400 focus:border-red-500' : 'border-gray-200 focus:border-[#00BFA6]'}`}
+                  placeholder="0612345678"
                 />
+                {fieldErrors.phone && <p className="mt-2 text-xs text-red-600">{fieldErrors.phone}</p>}
               </div>
             </div>
 
@@ -214,10 +345,14 @@ export default function Register() {
                   type={showPassword ? 'text' : 'password'}
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  className="w-full pl-12 pr-12 py-3 md:py-3.5 bg-gray-50 border-2 border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:bg-white focus:border-[#00BFA6] focus:outline-none focus:ring-4 focus:ring-[#00BFA6]/10 transition-all font-medium"
+                  disabled={isLoading}
+                  className={`w-full pl-12 pr-12 py-3 md:py-3.5 bg-gray-50 border-2 rounded-xl text-gray-900 placeholder-gray-400 focus:bg-white focus:outline-none focus:ring-4 focus:ring-[#00BFA6]/10 transition-all font-medium ${fieldErrors.password ? 'border-red-400 focus:border-red-500' : 'border-gray-200 focus:border-[#00BFA6]'}`}
                   placeholder="••••••••"
                   required
                 />
+              {fieldErrors.password && (
+                <p className="mt-2 text-xs text-red-600">{fieldErrors.password}</p>
+              )}
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
@@ -263,10 +398,18 @@ export default function Register() {
                   type={showConfirmPassword ? 'text' : 'password'}
                   value={formData.confirmPassword}
                   onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                  className="w-full pl-12 pr-12 py-3 md:py-3.5 bg-gray-50 border-2 border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:bg-white focus:border-[#00BFA6] focus:outline-none focus:ring-4 focus:ring-[#00BFA6]/10 transition-all font-medium"
+                  onPaste={(e) => e.preventDefault()}
+                  onCopy={(e) => e.preventDefault()}
+                  onCut={(e) => e.preventDefault()}
+                  onDrop={(e) => e.preventDefault()}
+                  disabled={isLoading}
+                  className={`w-full pl-12 pr-12 py-3 md:py-3.5 bg-gray-50 border-2 rounded-xl text-gray-900 placeholder-gray-400 focus:bg-white focus:outline-none focus:ring-4 focus:ring-[#00BFA6]/10 transition-all font-medium ${fieldErrors.confirmPassword ? 'border-red-400 focus:border-red-500' : 'border-gray-200 focus:border-[#00BFA6]'}`}
                   placeholder="••••••••"
                   required
                 />
+              {fieldErrors.confirmPassword && (
+                <p className="mt-2 text-xs text-red-600">{fieldErrors.confirmPassword}</p>
+              )}
                 <button
                   type="button"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
@@ -293,37 +436,40 @@ export default function Register() {
               )}
             </div>
 
-            {/* Account Type */}
+            {/* Rôle (remplace Type de compte) */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-3">
-                Type de compte
+                Rôle
               </label>
               <div className="grid grid-cols-2 gap-3">
                 <button
                   type="button"
-                  onClick={() => setAccountType('individual')}
+                  onClick={() => setRole('owner')}
+                  id="role-owner"
                   className={`flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 font-semibold text-sm transition-all ${
-                    accountType === 'individual'
+                    role === 'owner'
                       ? 'bg-[#00BFA6] border-[#00BFA6] text-white shadow-lg'
                       : 'bg-white border-gray-200 text-gray-700 hover:border-gray-300'
                   }`}
                 >
                   <User className="w-5 h-5" />
-                  <span>Particulier</span>
+                  <span>Propriétaire</span>
                 </button>
                 <button
                   type="button"
-                  onClick={() => setAccountType('business')}
+                  onClick={() => setRole('fleet_manager')}
+                  id="role-fleet_manager"
                   className={`flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 font-semibold text-sm transition-all ${
-                    accountType === 'business'
+                    role === 'fleet_manager'
                       ? 'bg-[#00BFA6] border-[#00BFA6] text-white shadow-lg'
                       : 'bg-white border-gray-200 text-gray-700 hover:border-gray-300'
                   }`}
                 >
                   <Shield className="w-5 h-5" />
-                  <span>Entreprise</span>
+                  <span>Gestionnaire de flotte</span>
                 </button>
               </div>
+              {fieldErrors.role && <p className="mt-2 text-xs text-red-600">{fieldErrors.role}</p>}
             </div>
 
             {/* Terms & Conditions */}
@@ -333,6 +479,7 @@ export default function Register() {
                 id="acceptTerms"
                 checked={acceptTerms}
                 onChange={(e) => setAcceptTerms(e.target.checked)}
+                disabled={isLoading}
                 className="mt-1 w-5 h-5 rounded border-2 border-gray-300 text-[#00BFA6] focus:ring-2 focus:ring-[#00BFA6]/20 transition-all cursor-pointer"
               />
               <label htmlFor="acceptTerms" className="text-sm text-gray-600 cursor-pointer">
@@ -345,7 +492,13 @@ export default function Register() {
                   Politique de Confidentialité
                 </a>
               </label>
+              {fieldErrors.acceptTerms && <p className="text-xs text-red-600 ml-2">{fieldErrors.acceptTerms}</p>}
             </div>
+
+            {/* CAPTCHA (TEMP: disabled) */}
+            {/* <div className="pt-2">
+              <Turnstile onVerify={(t) => setCaptchaToken(t)} onExpire={() => setCaptchaToken(null)} onError={() => setCaptchaToken(null)} />
+            </div> */}
 
             {/* Submit Button */}
             <button

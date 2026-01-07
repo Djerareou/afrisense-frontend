@@ -67,15 +67,20 @@ npm run lint
 
 ## 🌐 Development Server
 
-The application runs on `http://localhost:3000` by default.
+The application runs on `http://localhost:3001` by default.
 
 ## 📝 Environment Variables
 
-Create a `.env` file in the root directory:
+Create a `.env` file in the project root:
 
 ```env
-VITE_API_URL=your_api_url
-VITE_WS_URL=your_websocket_url
+# Development
+VITE_API_BASE_URL=http://localhost:3000/api
+VITE_WS_URL=http://localhost:3000
+
+# Production (example)
+# VITE_API_BASE_URL=https://yourdomain.com/api
+# VITE_WS_URL=https://yourdomain.com
 ```
 
 ## 🏛️ Architecture

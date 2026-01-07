@@ -42,6 +42,9 @@ export function useLiveTracking(trackerIds: string[]) {
 
   // Subscribe to trackers
   useEffect(() => {
+    // Ensure socket connection (after login token is set)
+    liveWebSocket.ensureConnected();
+
     // Subscribe to all tracker IDs
     trackerIds.forEach(id => {
       liveWebSocket.subscribe(id);

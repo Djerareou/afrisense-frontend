@@ -5,11 +5,22 @@ export const API_CONFIG = {
   TIMEOUT: 10000,
 } as const;
 
+// Dev-only: log resolved environment and API config for quick verification
+if (import.meta.env.DEV) {
+  console.log('[Env] VITE_API_BASE_URL:', import.meta.env.VITE_API_BASE_URL);
+  console.log('[Env] VITE_WS_URL:', import.meta.env.VITE_WS_URL);
+  console.log('[API_CONFIG]', API_CONFIG);
+}
+
 export const API_ENDPOINTS = {
   // Authentication
   AUTH_REGISTER: '/auth/register',
   AUTH_LOGIN: '/auth/login',
-  AUTH_PROFILE: '/auth/profile',
+  AUTH_ME: '/auth/me',
+  // OAuth
+  AUTH_OAUTH_GOOGLE: '/auth/google',
+  AUTH_OAUTH_MICROSOFT: '/auth/microsoft',
+  AUTH_OAUTH_APPLE: '/auth/apple',
   
   // Devices
   DEVICES: '/devices',
@@ -29,5 +40,6 @@ export const API_ENDPOINTS = {
   GEOFENCES_BY_TRACKER: (trackerId: string) => `/geofences/${trackerId}`,
   
   // WebSocket
-  WS_LIVE: '/live',
+  // Socket.io default path is /socket.io; we connect via base URL using the client
+  WS_LIVE: '/socket.io',
 } as const;
