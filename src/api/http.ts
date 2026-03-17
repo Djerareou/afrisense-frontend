@@ -30,6 +30,7 @@ class HttpClient {
   ): Promise<T> {
     const token = this.getAuthToken();
     const headers: Record<string, string> = {
+      // Default to JSON; if body is FormData we will omit Content-Type so the browser sets the boundary
       'Content-Type': 'application/json',
       'Accept': 'application/json',
     };
@@ -38,15 +39,25 @@ class HttpClient {
       headers['Authorization'] = `Bearer ${token}`;
     }
 
-    const configHeaders = {
+    // If caller passed a FormData body, do not set Content-Type (browser will set multipart boundary)
+    const bodyIsFormData = options.body instanceof FormData;
+
+    const mergedHeaders = {
       ...headers,
       ...(options.headers as Record<string, string> | undefined),
     };
+    if (bodyIsFormData) {
+      delete mergedHeaders['Content-Type'];
+    }
+
+    const configHeaders = mergedHeaders;
     const config: RequestInit = {
       ...options,
       headers: configHeaders,
       signal: AbortSignal.timeout(this.timeout),
     };
+
+    // No dev-only debug logs in production code. Remove any temporary logging.
 
     try {
       const response = await fetch(`${this.baseUrl}${endpoint}`, config);
@@ -123,25 +134,28 @@ class HttpClient {
   }
 
   async post<T>(endpoint: string, data?: any, extraHeaders?: Record<string, string>): Promise<T> {
+    const body = data instanceof FormData ? data : data ? JSON.stringify(data) : undefined;
     return this.request<T>(endpoint, {
       method: 'POST',
-      body: data ? JSON.stringify(data) : undefined,
+      body,
       headers: extraHeaders,
     });
   }
 
   async put<T>(endpoint: string, data?: any, extraHeaders?: Record<string, string>): Promise<T> {
+    const body = data instanceof FormData ? data : data ? JSON.stringify(data) : undefined;
     return this.request<T>(endpoint, {
       method: 'PUT',
-      body: data ? JSON.stringify(data) : undefined,
+      body,
       headers: extraHeaders,
     });
   }
 
   async patch<T>(endpoint: string, data?: any, extraHeaders?: Record<string, string>): Promise<T> {
+    const body = data instanceof FormData ? data : data ? JSON.stringify(data) : undefined;
     return this.request<T>(endpoint, {
       method: 'PATCH',
-      body: data ? JSON.stringify(data) : undefined,
+      body,
       headers: extraHeaders,
     });
   }

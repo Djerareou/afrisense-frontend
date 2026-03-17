@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import { Radio, Home, Car, CreditCard, MapPin, Bell, User, Menu, X, Search, ChevronDown, Settings, LogOut, LogIn } from 'lucide-react';
+import { Radio, Home, Car, CreditCard, MapPin, Bell, User, Menu, X, Search, ChevronDown, Settings, LogOut, LogIn, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../../auth/auth.context';
 
 export default function Header() {
@@ -62,10 +62,11 @@ export default function Header() {
 
       <nav className="hidden lg:flex items-center gap-2 xl:gap-3 font-['Inter'] relative z-10">
         <button className="flex items-center gap-2 px-4 xl:px-5 py-2.5 min-h-touch bg-gradient-to-r from-[#00BFA6] to-[#00d4b8] hover:from-[#00d4b8] hover:to-[#00BFA6] rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105 whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-[#3B6EA5] backdrop-blur-md"
-          onClick={() => navigate('/')}>
+          onClick={() => navigate('/dashboard')}>
           <Home className="w-5 h-5" />
           <span className="font-bold text-sm xl:text-base">Dashboard</span>
         </button>
+        
         <button className="flex items-center gap-2 px-4 xl:px-5 py-2.5 min-h-touch bg-white/10 backdrop-blur-md hover:bg-white/20 rounded-xl transition-all duration-200 whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-[#3B6EA5] border border-white/10 hover:border-white/20 shadow-md hover:shadow-lg"
           onClick={() => navigate('/devices')}>
           <Car className="w-5 h-5" />
@@ -125,17 +126,32 @@ export default function Header() {
                 </div>
               </div>
               <div className="p-2">
-                <button className="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors text-left font-medium text-sm group">
+                <button
+                  onClick={() => { setIsUserMenuOpen(false); navigate('/profile'); }}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors text-left font-medium text-sm group"
+                >
                   <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center group-hover:bg-[#00BFA6] group-hover:text-white transition-colors">
                     <User className="w-4 h-4" />
                   </div>
                   <span>Mon Profil</span>
                 </button>
-                <button className="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors text-left font-medium text-sm group">
+                <button
+                  onClick={() => { setIsUserMenuOpen(false); navigate('/settings'); }}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors text-left font-medium text-sm group"
+                >
                   <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center group-hover:bg-[#00BFA6] group-hover:text-white transition-colors">
                     <Settings className="w-4 h-4" />
                   </div>
                   <span>Paramètres</span>
+                </button>
+                <button
+                  onClick={() => { setIsUserMenuOpen(false); navigate('/security'); }}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors text-left font-medium text-sm group"
+                >
+                  <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center group-hover:bg-[#00BFA6] group-hover:text-white transition-colors">
+                    <ShieldCheck className="w-4 h-4" />
+                  </div>
+                  <span>Sécurité</span>
                 </button>
               </div>
               <div className="p-2 border-t border-gray-100">
@@ -173,10 +189,11 @@ export default function Header() {
             {/* Navigation principale - Grille sur tablettes */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
               <button className="flex items-center gap-3 md:gap-4 px-4 md:px-6 py-3 md:py-4 min-h-touch bg-gradient-to-r from-[#00BFA6] to-[#00d4b8] hover:from-[#00d4b8] hover:to-[#00BFA6] rounded-xl transition-all duration-200 shadow-lg text-left w-full focus:outline-none focus:ring-2 focus:ring-white backdrop-blur-md"
-                onClick={() => { navigate('/'); setIsMobileMenuOpen(false); }}>
+                onClick={() => { navigate('/dashboard'); setIsMobileMenuOpen(false); }}>
                 <Home className="w-5 h-5 md:w-6 md:h-6" />
                 <span className="font-bold text-sm md:text-base">Dashboard</span>
               </button>
+              
               <button className="flex items-center gap-3 md:gap-4 px-4 md:px-6 py-3 md:py-4 min-h-touch bg-white/10 backdrop-blur-md hover:bg-white/20 rounded-xl transition-all duration-200 text-left w-full focus:outline-none focus:ring-2 focus:ring-white border border-white/10 shadow-md"
                 onClick={() => { navigate('/devices'); setIsMobileMenuOpen(false); }}>
                 <Car className="w-5 h-5 md:w-6 md:h-6" />
@@ -231,6 +248,12 @@ export default function Header() {
                   <User className="w-4 h-4 md:w-5 md:h-5" />
                 </div>
                 <span className="font-medium text-sm md:text-base">Mon Profil</span>
+              </button>
+              <button onClick={() => { setIsMobileMenuOpen(false); navigate('/security'); }} className="flex items-center gap-3 md:gap-2 px-4 md:px-3 py-2.5 md:py-3 bg-white/5 backdrop-blur-md hover:bg-white/10 rounded-xl transition-all duration-200 text-left w-full focus:outline-none focus:ring-2 focus:ring-white border border-white/10">
+                <div className="w-8 h-8 md:w-10 md:h-10 bg-white/10 rounded-lg flex items-center justify-center">
+                  <ShieldCheck className="w-4 h-4 md:w-5 md:h-5" />
+                </div>
+                <span className="font-medium text-sm md:text-base">Sécurité</span>
               </button>
               <button className="flex items-center gap-3 md:gap-2 px-4 md:px-3 py-2.5 md:py-3 bg-white/5 backdrop-blur-md hover:bg-white/10 rounded-xl transition-all duration-200 text-left w-full focus:outline-none focus:ring-2 focus:ring-white border border-white/10">
                 <div className="w-8 h-8 md:w-10 md:h-10 bg-white/10 rounded-lg flex items-center justify-center">

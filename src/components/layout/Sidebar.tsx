@@ -39,7 +39,7 @@ export function Sidebar() {
   const { isAuthenticated, logout } = useAuth();
 
   const menuItems = [
-    { to: '/', icon: <Home size={20} />, label: 'Dashboard' },
+  { to: '/dashboard', icon: <Home size={20} />, label: 'Dashboard' },
     { to: '/devices', icon: <Car size={20} />, label: 'Mes Trackers' },
     { to: '/alerts', icon: <Bell size={20} />, label: 'Alertes' },
     { to: '/geofences', icon: <Map size={20} />, label: 'Géofencing' },

@@ -1,19 +1,40 @@
 import { useState } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from '../auth/auth.context';
+// Import Login and Register pages
 import Login from '../auth/pages/Login';
 import Register from '../auth/pages/Register';
+import PasswordResetRequest from '../auth/pages/PasswordResetRequest';
+import AdminLogin from '../auth/pages/AdminLoginFixed';
 import ProtectedRoute from '../auth/ProtectedRoute';
 import Alerts from '../pages/Alerts';
 import Geofences from '../user/pages/geofences';
 import Devices from '../user/pages/devices';
 import TrackerDetails from '../user/pages/tracker/[id]';
 import Subscriptions from '../user/pages/subscriptions';
+import ProfilePage from '../user/pages/profile';
+import SettingsPage from '../pages/settings/settings';
+import SecurityPage from '../pages/security/security';
 import Header from '../components/layout/Header';
 import Footer from '../components/layout/Footer';
+import ChooseLogin from '../pages/ChooseLogin';
 import TrackerList from '../components/tracking/TrackerList';
 import AlertsPanel from '../components/alerts/AlertsPanel';
 import MapView from '../components/map/MapView';
+import AdminLayout from './layouts/AdminLayout';
+import AdminRoute from '../auth/AdminRoute';
+// Dynamically import all admin pages from src/admin/pages — each file becomes a nested route under /admin
+const adminModules = import.meta.glob('../admin/pages/*.tsx', { eager: true }) as Record<string, any>;
+// Build an array of { path, component } for each admin page
+const adminRoutes = Object.keys(adminModules).map((filePath) => {
+  // filePath example: '../admin/pages/users.tsx' → name 'users'
+  const match = filePath.match(/\.\.\/admin\/pages\/(.*)\.tsx$/);
+  const name = match ? match[1] : filePath;
+  // index route when file is 'dashboard' -> treat as index
+  const path = name === 'dashboard' ? '' : name;
+  const component = adminModules[filePath].default;
+  return { path, component };
+});
 
 
 
@@ -69,15 +90,15 @@ function Dashboard() {
     },
   ];
 
-  // Map coordinates (New York example)
-  const mapCenter: [number, number] = [40.7128, -74.0060];
-  const trackerPosition: [number, number] = [40.7128, -74.0060];
-  const geofenceCenter: [number, number] = [40.7128, -74.0060];
+  // Map coordinates (N'Djamena, Chad)
+  const mapCenter: [number, number] = [12.1348, 15.0557];
+  const trackerPosition: [number, number] = [12.1348, 15.0557];
+  const geofenceCenter: [number, number] = [12.1348, 15.0557];
   const historyPath: [number, number][] = [
-    [40.7100, -74.0080],
-    [40.7110, -74.0070],
-    [40.7120, -74.0065],
-    [40.7128, -74.0060],
+    [12.1300, 15.0500],
+    [12.1320, 15.0530],
+    [12.1335, 15.0540],
+    [12.1348, 15.0557],
   ];
 
   return (
@@ -167,13 +188,17 @@ export default function App() {
 <BrowserRouter>
   <AuthProvider>
     <Routes>
-      {/* PUBLIC */}
-      <Route path="/login" element={<Login />} />
-      <Route path="/register" element={<Register />} />
+    {/* PUBLIC */}
+    {/* PUBLIC ROUTES: Login & Register */}
+  <Route path="/login" element={<Login />} />
+  <Route path="/register" element={<Register />} />
+  <Route path="/password-reset" element={<PasswordResetRequest />} />
+  <Route path="/admin/login" element={<AdminLogin />} />
+  <Route path="/" element={<ChooseLogin />} />
 
       {/* PROTECTED */}
       <Route
-        path="/"
+        path="/dashboard"
         element={
           <ProtectedRoute>
             <Dashboard />
@@ -218,6 +243,33 @@ export default function App() {
       />
 
       <Route
+        path="/profile"
+        element={
+          <ProtectedRoute>
+            <ProfilePage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/settings"
+        element={
+          <ProtectedRoute>
+            <SettingsPage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/security"
+        element={
+          <ProtectedRoute>
+            <SecurityPage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
         path="/tracker/:id"
         element={
           <ProtectedRoute>
@@ -225,6 +277,26 @@ export default function App() {
           </ProtectedRoute>
         }
       />
+
+      {/* ADMIN */}
+      <Route
+        path="/admin"
+        element={
+          <ProtectedRoute>
+            <AdminRoute>
+              <AdminLayout />
+            </AdminRoute>
+          </ProtectedRoute>
+        }
+      >
+        {adminRoutes.map((r) => (
+          r.path === '' ? (
+            <Route key="admin-index" index element={<r.component />} />
+          ) : (
+            <Route key={r.path} path={r.path} element={<r.component />} />
+          )
+        ))}
+      </Route>
     </Routes>
   </AuthProvider>
 </BrowserRouter>

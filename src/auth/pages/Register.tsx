@@ -5,8 +5,15 @@ import { useAuth } from '../auth.context';
 import { isValidEmail, isAcceptablePassword, normalizeFullName } from '@/utils/validators';
 import { adaptBackendError } from '@/utils/errorAdapter';
 import { ApiError } from '@/api/http';
-// import Turnstile from '@/components/security/Turnstile';
+import Turnstile, { resolveTurnstileSiteKey } from '@/components/security/Turnstile';
 
+/**
+ * Register page
+ * - Uses Cloudflare Turnstile to protect the public registration endpoint.
+ * - The component captures a short-lived token which is forwarded to the
+ *   backend via the AuthContext register call. The backend must verify
+ *   the token server-side before creating the account.
+ */
 export default function Register() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -18,8 +25,8 @@ export default function Register() {
   const [success, setSuccess] = useState('');
   const [backendErrors, setBackendErrors] = useState<Array<{ field: string; message: string }>>([]);
   const [requestId, setRequestId] = useState<string | undefined>(undefined);
-  // TEMP: Disable CAPTCHA for testing
-  // const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  // CAPTCHA token state (used to hold the one-time token issued by Turnstile)
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<'fullName'|'email'|'phone'|'password'|'confirmPassword'|'role'|'acceptTerms', string>>>({});
   const [role, setRole] = useState<'owner' | 'fleet_manager'>('owner');
   const [acceptTerms, setAcceptTerms] = useState(false);
@@ -30,6 +37,9 @@ export default function Register() {
     password: '',
     confirmPassword: ''
   });
+
+  // Resolve site key (coerce object env shapes to a plain string when needed)
+  const turnstileSiteKey = resolveTurnstileSiteKey((import.meta.env as any).VITE_TURNSTILE_SITE_KEY);
 
   // Password strength
   const [passwordStrength, setPasswordStrength] = useState(0);
@@ -54,34 +64,7 @@ export default function Register() {
   }, [formData.password]);
 
   // Derive a friendly, specific error message from backend response
-  const getFriendlyErrorMessage = (err: ApiError, details: Array<{ field?: string; message?: string }> = []) => {
-    const lower = (s?: string) => (s || '').toLowerCase();
-    // Email already exists: often 409 or a detail mentioning existence
-    const emailDetail = details.find(d => (d.field === 'email') && /(existe|already|taken|existant|duplicate|dupli)/i.test(d.message || ''));
-    if (err.status === 409 || emailDetail) {
-      return "Cet email existe déjà. Veuillez utiliser une autre adresse.";
-    }
-    // Validation errors: surface first detail message if available
-    if (Array.isArray(details) && details.length > 0) {
-      const first = details[0];
-      if (first?.message) return first.message;
-    }
-    // Specific common cases by message pattern
-    const msg = lower(err.message);
-    if (/password/.test(msg) && /(weak|format|invalid|complexity)/.test(msg)) {
-      return 'Le mot de passe ne répond pas aux exigences de sécurité.';
-    }
-    if (/phone|téléphone/.test(msg) && /(invalid|format)/.test(msg)) {
-      return 'Le numéro de téléphone est invalide.';
-    }
-    if (/role/.test(msg) && /(invalid|allowed)/.test(msg)) {
-      return 'Le rôle sélectionné n’est pas autorisé.';
-    }
-    // Default fallback avoiding generic "Bad Request"
-    return err.message && err.message !== 'Bad Request'
-      ? err.message
-      : 'Une erreur est survenue. Veuillez vérifier les champs et réessayer.';
-  };
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -92,12 +75,10 @@ export default function Register() {
 
     // Validation
     const normalizedName = normalizeFullName(formData.fullName);
-    // Basic email validation using input type; avoid brittle regex here
     if (!isValidEmail(formData.email)) {
       setError('Email invalide');
       return;
     }
-    // Full name length 3–50
     const nameLen = normalizedName.trim().length;
     if (nameLen < 3 || nameLen > 50) {
       setFieldErrors(prev => ({ ...prev, fullName: 'Le nom complet doit contenir entre 3 et 50 caractères.' }));
@@ -108,44 +89,44 @@ export default function Register() {
       setError('Les mots de passe ne correspondent pas');
       return;
     }
-
     if (!acceptTerms) {
       setFieldErrors(prev => ({ ...prev, acceptTerms: 'Vous devez accepter les conditions générales' }));
       setError('Vous devez accepter les conditions générales');
       return;
     }
-
     if (!isAcceptablePassword(formData.password)) {
       setFieldErrors(prev => ({ ...prev, password: 'Le mot de passe doit contenir des lettres, des chiffres et un caractère spécial, et au moins 8 caractères.' }));
       setError('Le mot de passe est trop faible');
       return;
     }
-
+    // Require CAPTCHA token for registration - backend will reject missing tokens
+    if (!captchaToken) {
+      setError('Veuillez compléter le CAPTCHA pour continuer.');
+      return;
+    }
     setIsLoading(true);
-
     try {
+      // Forward captchaToken to the AuthContext/register implementation.
       await register(formData.email, formData.password, normalizedName, {
         phone: formData.phone || undefined,
         role,
         confirmPassword: formData.confirmPassword,
         acceptTerms,
-  // captchaToken: captchaToken ?? undefined, // TEMP: disabled
+        captchaToken,
       });
       setSuccess('Inscription réussie. Bienvenue sur AfriSense !');
       // Navigation handled by AuthContext
     } catch (err) {
       if (err instanceof ApiError) {
         const adapted = adaptBackendError(err.data);
-        // Field-level errors
         setFieldErrors(adapted.fields);
         setRequestId(adapted.requestId);
-        // Rendering strategy: for EMAIL_ALREADY_EXISTS show only under the email field
         if (!err.status) {
           setBackendErrors([]);
           setError("Impossible de contacter le serveur. Vérifiez l'URL de l'API et que le backend est démarré.");
         } else if (adapted.code === 'EMAIL_ALREADY_EXISTS') {
           setBackendErrors([]);
-          setError(''); // prefer inline email field error only
+          setError('');
         } else if (adapted.code === 'VALIDATION_ERROR') {
           setBackendErrors(Object.entries(adapted.fields).map(([field, message]) => ({ field, message: String(message) })));
           setError(adapted.message || 'Erreur de validation');
@@ -183,15 +164,15 @@ export default function Register() {
 
   // OAuth handlers - À connecter avec votre backend plus tard
   const handleGoogleRegister = () => {
-    console.log('Google OAuth Register - À implémenter avec le backend');
+    // TODO: implement Google OAuth registration flow with backend
   };
 
   const handleMicrosoftRegister = () => {
-    console.log('Microsoft OAuth Register - À implémenter avec le backend');
+    // TODO: implement Microsoft OAuth registration flow with backend
   };
 
   const handleAppleRegister = () => {
-    console.log('Apple OAuth Register - À implémenter avec le backend');
+    // TODO: implement Apple OAuth registration flow with backend
   };
 
   const getPasswordStrengthColor = () => {
@@ -495,10 +476,19 @@ export default function Register() {
               {fieldErrors.acceptTerms && <p className="text-xs text-red-600 ml-2">{fieldErrors.acceptTerms}</p>}
             </div>
 
-            {/* CAPTCHA (TEMP: disabled) */}
-            {/* <div className="pt-2">
-              <Turnstile onVerify={(t) => setCaptchaToken(t)} onExpire={() => setCaptchaToken(null)} onError={() => setCaptchaToken(null)} />
-            </div> */}
+            {/* CAPTCHA (Cloudflare Turnstile) - required for registration */}
+            <div className="pt-2">
+        <Turnstile
+          siteKey={turnstileSiteKey}
+                  onVerify={(t) => setCaptchaToken(t)}
+                  onExpire={() => setCaptchaToken(null)}
+                  onError={() => setCaptchaToken(null)}
+                />
+              {/* Only show the warning if user tried to submit without CAPTCHA */}
+              {error === 'Veuillez compléter le CAPTCHA pour continuer.' && (
+                <p className="mt-2 text-xs text-red-600">Veuillez compléter le CAPTCHA pour activer l'inscription.</p>
+              )}
+            </div>
 
             {/* Submit Button */}
             <button

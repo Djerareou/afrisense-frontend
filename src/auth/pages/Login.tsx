@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { Radio, Mail, Lock, Eye, EyeOff, ArrowRight, MapPin, Activity, Shield, Zap } from 'lucide-react';
-// import Turnstile from '@/components/security/Turnstile';
+// CAPTCHA (Turnstile) disabled — widget removed
 import { API_CONFIG, API_ENDPOINTS } from '@/api/config';
 import { useAuth } from '../auth.context';
 
+/**
+ * Login page
+ */
 export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -17,8 +20,7 @@ export default function Login() {
     email: '',
     password: ''
   });
-  // TEMP: Disable CAPTCHA for testing
-  // const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  // CAPTCHA removed: no token required
 
   // Redirect if already authenticated
   useEffect(() => {
@@ -31,11 +33,28 @@ export default function Login() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    setIsLoading(true);
 
+    // No CAPTCHA required for login (disabled)
+
+    setIsLoading(true);
     try {
-  await login(formData.email, formData.password, rememberMe);
-      // Navigation handled by AuthContext
+      await login(formData.email, formData.password, rememberMe);
+      // After successful login, decide where to redirect:
+      // Priority: (1) original 'from' location (location.state.from),
+      // (2) chooser mode stored in sessionStorage under 'login_mode',
+      // (3) default to dashboard '/dashboard'.
+      const from = (location.state as any)?.from?.pathname;
+      const mode = sessionStorage.getItem('login_mode');
+      // Clear the chooser value once used
+      sessionStorage.removeItem('login_mode');
+
+      if (from) {
+        navigate(from, { replace: true });
+      } else if (mode === 'admin') {
+        navigate('/admin', { replace: true });
+      } else {
+        navigate('/dashboard', { replace: true });
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erreur de connexion');
     } finally {
@@ -158,15 +177,12 @@ window.location.href = `${API_CONFIG.BASE_URL}/api/auth/google/authorize`;
                   Se souvenir de moi
                 </span>
               </label>
-              <a href="#" className="text-sm font-semibold text-[#00BFA6] hover:text-[#00a892] transition-colors">
+              <Link to="/password-reset" className="text-sm font-semibold text-[#00BFA6] hover:text-[#00a892] transition-colors">
                 Mot de passe oublié ?
-              </a>
+              </Link>
             </div>
 
-            {/* CAPTCHA (TEMP: disabled) */}
-            {/* <div className="pt-2">
-              <Turnstile onVerify={(t) => setCaptchaToken(t)} onExpire={() => setCaptchaToken(null)} onError={() => setCaptchaToken(null)} />
-            </div> */}
+            {/* CAPTCHA removed */}
 
             {/* Submit Button */}
             <button

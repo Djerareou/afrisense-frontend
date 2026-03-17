@@ -413,12 +413,12 @@ export function ManualWebSocketExample() {
     // Monitor connection status
     const unsubscribeOpen = liveWebSocket.onOpen(() => {
       setConnected(true);
-      console.log('WebSocket connected');
+      // connection established (example UI updates state)
     });
 
     const unsubscribeClose = liveWebSocket.onClose(() => {
       setConnected(false);
-      console.log('WebSocket disconnected');
+      // connection closed
     });
 
     // Listen for messages

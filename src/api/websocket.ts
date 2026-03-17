@@ -42,7 +42,11 @@ export class LiveWebSocket {
   private subscribedTrackers: Set<string> = new Set();
 
   constructor() {
-    this.connect();
+    // Do not auto-connect on import. Wait for an explicit call to
+    // ensureConnected() after an auth token is present. This avoids
+    // noisy console errors during initial page load when no user is
+    // authenticated yet.
+    // this.connect();
   }
 
   /**

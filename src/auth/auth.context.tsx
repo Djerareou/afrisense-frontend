@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, ReactNode } from 'react
 import { useNavigate } from 'react-router-dom';
 import { authApi } from '../api';
 import { ApiError } from '@/api/http';
+import { liveWebSocket } from '@/api/websocket';
 
 interface User {
   id: string;
@@ -71,15 +72,30 @@ useEffect(() => {
   setIsLoading(false);
 }, []);
 
-const login = async (email: string, password: string, rememberMe = false) => {
+const login = async (
+  email: string,
+  password: string,
+  rememberMe = false,
+  opts?: { captchaToken?: string }
+) => {
   setIsLoading(true);
   try {
-    const loginRes = await authApi.login({ email, password });
+    // Pass captchaToken to API if provided (required for public endpoints)
+    const loginRes = await authApi.login({ email, password }, { captchaToken: opts?.captchaToken });
 
     const storage = rememberMe ? localStorage : sessionStorage;
     const token = loginRes.token;
 
     storage.setItem('auth_token', token);
+      // Ensure real-time connection is established once a token exists.
+      // This avoids the "No auth token found. Cannot connect to Socket.io." message
+      // when the LiveWebSocket singleton attempts to connect on import.
+      try {
+        liveWebSocket.ensureConnected();
+      } catch (e) {
+        // Non-fatal: surface to console for debugging but don't block login flow
+        console.warn('[Auth] liveWebSocket.ensureConnected() failed', e);
+      }
     localStorage.setItem('remember_me', rememberMe ? 'true' : 'false');
 
     const profile = await authApi.getProfile();
@@ -91,19 +107,53 @@ const login = async (email: string, password: string, rememberMe = false) => {
       role: profile.role,
     };
 
-    storage.setItem('user_data', JSON.stringify(user));
-    setUser(user);
-
-    navigate('/');
+  storage.setItem('user_data', JSON.stringify(user));
+  setUser(user);
+  // Do not navigate here: leave redirect decision to the login caller so it can
+  // respect chooser mode (stored in sessionStorage) or original `from` location.
   } catch (error) {
-    console.error('Login error:', error);
-    throw new Error('Échec de la connexion. Veuillez vérifier vos identifiants.');
+     console.error('Login error:', error);
+     // If the error is an ApiError from the HTTP layer, surface its message
+     // so the UI can show a more specific reason (for example invalid creds,
+     // account locked, captcha required, etc.). Fall back to a generic message.
+     // Development fallback: allow a local admin shortcut when running in dev.
+     // Use explicit credentials: email=admin@local password=admin
+     // This avoids interfering with production and is useful for local UI work.
+     try {
+       // Vite exposes import.meta.env.DEV
+       const isDev = typeof import.meta !== 'undefined' && Boolean((import.meta as any).env?.DEV);
+       if (isDev && (email === 'admin@local' && password === 'admin')) {
+         const storage = rememberMe ? localStorage : sessionStorage;
+         storage.setItem('auth_token', 'dev-admin-token');
+         localStorage.setItem('remember_me', rememberMe ? 'true' : 'false');
+         const devUser = { id: 'dev-admin', email, name: 'Local Admin', role: 'admin' };
+         storage.setItem('user_data', JSON.stringify(devUser));
+         setUser(devUser);
+         // best-effort connect websocket
+         try { liveWebSocket.ensureConnected(); } catch (e) {}
+         return;
+       }
+     } catch (devErr) {
+       // ignore dev fallback errors and continue to throw original
+     }
+
+     if (error instanceof ApiError) {
+       const message = error.message || 'Échec de la connexion. Veuillez vérifier vos identifiants.';
+       throw new Error(message);
+     }
+     throw new Error('Échec de la connexion. Veuillez vérifier vos identifiants.');
   } finally {
     setIsLoading(false);
   }
 };
 
   const logout = () => {
+    // Disconnect realtime socket if connected
+    try {
+      liveWebSocket.disconnect();
+    } catch (e) {
+      // best-effort cleanup
+    }
     // Clear storage
     localStorage.removeItem('auth_token');
     localStorage.removeItem('user_data');

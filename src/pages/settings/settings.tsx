@@ -1,8 +1,31 @@
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/auth/auth.context';
-import { Shield, Mail, User, LogOut } from 'lucide-react';
+import NotificationsSection from './components/NotificationsSection';
+import SaveBar from './components/SaveBar';
+import { authApi } from '@/api';
+import { ApiError } from '@/api/http';
 
 export default function Settings() {
-  const { user, logout, isLoading } = useAuth();
+  const { user, isLoading } = useAuth();
+  const [settings, setSettings] = useState({ emailNotifications: true, smsNotifications: false });
+  const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  const [timezone, setTimezone] = useState<string>('Europe/Paris');
+  const [saving, setSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
+
+  // initialize settings from user if available
+  useEffect(() => {
+    if (user) {
+      // attempt to read settings from user object if present
+      // @ts-ignore
+      const s = (user as any).settings;
+      if (s) {
+        setSettings({ emailNotifications: !!s.emailNotifications, smsNotifications: !!s.smsNotifications });
+        if (s.theme) setTheme(s.theme);
+        if (s.timezone) setTimezone(s.timezone);
+      }
+    }
+  }, [user]);
 
   if (isLoading) {
     return (
@@ -14,80 +37,73 @@ export default function Settings() {
 
   if (!user) return null;
 
-  const sessionType = localStorage.getItem('auth_token')
-    ? 'Session persistante (Remember me)'
-    : 'Session navigateur';
+  const { setUserFromToken } = useAuth();
+
+  const handleSave = async () => {
+    setSaving(true);
+    setSaveMessage(null);
+    try {
+      // Persist notification/preferences
+      await authApi.updateNotifications({ emailNotifications: settings.emailNotifications, smsNotifications: settings.smsNotifications, theme, timezone });
+
+      // Optionally refresh user settings
+      try {
+        await setUserFromToken();
+      } catch (e) {
+        console.warn('Failed to refresh user after settings update', e);
+      }
+
+      setSaveMessage('Enregistré');
+    } catch (err) {
+      if (err instanceof ApiError && err.data) {
+        const firstKey = Object.keys(err.data)[0];
+        const firstMsg = err.data[firstKey];
+        setSaveMessage(typeof firstMsg === 'string' ? firstMsg : JSON.stringify(firstMsg));
+      } else {
+        setSaveMessage("Erreur lors de l'enregistrement");
+      }
+    } finally {
+      setSaving(false);
+      setTimeout(() => setSaveMessage(null), 3000);
+    }
+  };
 
   return (
     <div className="max-w-3xl mx-auto p-6 font-['Inter']">
-      <h1 className="text-2xl font-extrabold text-gray-900 mb-6">
-        Paramètres du compte
-      </h1>
+      <h1 className="text-2xl font-extrabold text-gray-900 mb-6">Paramètres du compte</h1>
 
       <div className="bg-white rounded-2xl shadow-sm border border-gray-200 divide-y">
-        
-        {/* Profil */}
-        <Section title="Profil">
-          <Item icon={<User />} label="Nom" value={user.name} />
-          <Item icon={<Mail />} label="Email" value={user.email} />
-          <Item icon={<Shield />} label="Rôle" value={user.role} />
-        </Section>
+        <section className="p-6">
+          <h2 className="text-lg font-medium mb-2">Préférences générales</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <label className="flex flex-col">
+              <span className="text-sm text-gray-600">Thème</span>
+              <select className="mt-1 border px-3 py-2 rounded" value={theme} onChange={(e) => setTheme(e.target.value as 'light' | 'dark')}>
+                <option value="light">Clair</option>
+                <option value="dark">Sombre</option>
+              </select>
+            </label>
 
-        {/* Sécurité */}
-        <Section title="Sécurité">
-          <Item
-            icon={<Shield />}
-            label="Type de session"
-            value={sessionType}
-          />
-        </Section>
+            <label className="flex flex-col">
+              <span className="text-sm text-gray-600">Fuseau horaire</span>
+              <select className="mt-1 border px-3 py-2 rounded" value={timezone} onChange={(e) => setTimezone(e.target.value)}>
+                <option value="Europe/Paris">Europe/Paris (UTC+1)</option>
+                <option value="UTC">UTC</option>
+              </select>
+            </label>
+          </div>
 
-        {/* Actions */}
-        <div className="p-6">
-          <button
-            onClick={logout}
-            className="flex items-center gap-2 text-red-600 font-semibold hover:text-red-700 transition"
-          >
-            <LogOut className="w-4 h-4" />
-            Se déconnecter
-          </button>
+          <div className="mt-4">
+            <NotificationsSection settings={settings} setSettings={setSettings} />
+          </div>
+        </section>
+      </div>
+
+      <div className="mt-4">
+        <div className="flex justify-end items-center">
+          <SaveBar saving={saving} saveMessage={saveMessage} onSave={handleSave} />
         </div>
       </div>
-    </div>
-  );
-}
-
-function Section({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="p-6">
-      <h2 className="text-sm font-bold text-gray-500 uppercase mb-4">
-        {title}
-      </h2>
-      <div className="space-y-3">{children}</div>
-    </div>
-  );
-}
-
-function Item({
-  icon,
-  label,
-  value,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-}) {
-  return (
-    <div className="flex items-center gap-3 text-sm">
-      <div className="text-gray-400">{icon}</div>
-      <span className="text-gray-500 w-32">{label}</span>
-      <span className="font-semibold text-gray-900">{value}</span>
     </div>
   );
 }

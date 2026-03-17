@@ -1,9 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { User, Mail, Phone, MapPin, Calendar, Camera, Save } from 'lucide-react';
 import { useAuth } from '../../auth/auth.context';
+import { authApi } from '@/api';
 
 export default function ProfilePage() {
-  const { user } = useAuth();
+  const { user, setUserFromToken } = useAuth();
+  const fileRef = useRef<HTMLInputElement | null>(null);
   
   const [profile, setProfile] = useState({
     fullName: user?.name || 'John Doe',
@@ -15,11 +17,50 @@ export default function ProfilePage() {
     joinDate: '15 Décembre 2024',
     company: 'AfriSense Cameroun',
     bio: 'Gestionnaire de flotte automobile passionné par la technologie GPS et la sécurité des véhicules.',
+    language: 'fr',
+    avatarUrl: '',
+    avatarFile: null as File | null,
   });
+  const [saving, setSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
 
-  const handleSave = () => {
-    console.log('Profile updated:', profile);
-    // TODO: Save to backend
+  useEffect(() => {
+    if (user) {
+      setProfile((p) => ({ ...p, fullName: user.name || p.fullName, email: user.email || p.email }));
+    }
+  }, [user]);
+
+  const pickAvatar = () => fileRef.current?.click();
+
+  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0] ?? null;
+    if (f) {
+      const url = URL.createObjectURL(f);
+      setProfile((p) => ({ ...p, avatarUrl: url, avatarFile: f }));
+    }
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    setSaveMessage(null);
+    try {
+      // Upload avatar if provided
+      if (profile.avatarFile) {
+        await authApi.uploadAvatar(profile.avatarFile);
+      }
+
+      // Persist profile fields (fullName + language)
+      await authApi.updateProfile({ fullName: profile.fullName, language: profile.language });
+
+      try { await setUserFromToken(); } catch (e) { console.warn('refresh user failed', e); }
+      setSaveMessage('Profil enregistré');
+    } catch (err) {
+      console.error('Failed to save profile', err);
+      setSaveMessage("Erreur lors de l'enregistrement");
+    } finally {
+      setSaving(false);
+      setTimeout(() => setSaveMessage(null), 3000);
+    }
   };
 
   return (
@@ -35,12 +76,18 @@ export default function ProfilePage() {
         <div className="flex items-center gap-6">
           {/* Avatar */}
           <div className="relative">
-            <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center text-4xl font-bold text-[#00BFA6]">
-              {profile.fullName.charAt(0)}
+            <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center text-4xl font-bold text-[#00BFA6] overflow-hidden">
+              {profile.avatarUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={profile.avatarUrl} alt="avatar" className="w-full h-full object-cover" />
+              ) : (
+                <div className="text-4xl">{profile.fullName.charAt(0)}</div>
+              )}
             </div>
-            <button className="absolute bottom-0 right-0 w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-lg hover:shadow-xl transition-shadow">
+            <button onClick={pickAvatar} className="absolute bottom-0 right-0 w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-lg hover:shadow-xl transition-shadow">
               <Camera size={16} className="text-[#00BFA6]" />
             </button>
+            <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
           </div>
 
           {/* User Info */}
@@ -84,9 +131,7 @@ export default function ProfilePage() {
         
         <div className="grid md:grid-cols-2 gap-6">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Nom complet
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Nom complet</label>
             <div className="relative">
               <User size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
               <input
@@ -99,24 +144,20 @@ export default function ProfilePage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Email
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
             <div className="relative">
               <Mail size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
               <input
                 type="email"
                 value={profile.email}
-                onChange={(e) => setProfile({ ...profile, email: e.target.value })}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                readOnly
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg bg-gray-50"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Téléphone
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Téléphone</label>
             <div className="relative">
               <Phone size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
               <input
@@ -129,9 +170,20 @@ export default function ProfilePage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Entreprise
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Langue</label>
+            <select
+              value={profile.language}
+              onChange={(e) => setProfile({ ...profile, language: e.target.value })}
+              className="w-full border px-3 py-2 rounded"
+            >
+              <option value="fr">Français</option>
+              <option value="en">English</option>
+              <option value="es">Español</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Entreprise</label>
             <input
               type="text"
               value={profile.company}
@@ -141,9 +193,7 @@ export default function ProfilePage() {
           </div>
 
           <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Adresse
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Adresse</label>
             <div className="relative">
               <MapPin size={18} className="absolute left-3 top-3 text-gray-400" />
               <input
@@ -156,9 +206,7 @@ export default function ProfilePage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Ville
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Ville</label>
             <input
               type="text"
               value={profile.city}
@@ -168,9 +216,7 @@ export default function ProfilePage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Pays
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Pays</label>
             <input
               type="text"
               value={profile.country}
@@ -180,9 +226,7 @@ export default function ProfilePage() {
           </div>
 
           <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Bio
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Bio</label>
             <textarea
               value={profile.bio}
               onChange={(e) => setProfile({ ...profile, bio: e.target.value })}
@@ -194,75 +238,16 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      {/* Security Section */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
-        <h2 className="text-xl font-bold text-gray-900 mb-6">Sécurité</h2>
-        
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Mot de passe actuel
-            </label>
-            <input
-              type="password"
-              placeholder="••••••••"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
-
-          <div className="grid md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Nouveau mot de passe
-              </label>
-              <input
-                type="password"
-                placeholder="••••••••"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Confirmer le mot de passe
-              </label>
-              <input
-                type="password"
-                placeholder="••••••••"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-          </div>
-
-          <button className="text-sm text-blue-600 hover:text-blue-700 font-medium">
-            Modifier le mot de passe
-          </button>
-        </div>
-      </div>
-
-      {/* Account Actions */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
-        <h2 className="text-xl font-bold text-gray-900 mb-4">Actions du compte</h2>
-        
-        <div className="flex flex-wrap gap-4">
-          <button className="px-6 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium">
-            Télécharger mes données
-          </button>
-          
-          <button className="px-6 py-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors font-medium">
-            Supprimer le compte
-          </button>
-        </div>
-      </div>
-
       {/* Save Button */}
-      <div className="flex justify-end">
+      <div className="flex justify-end items-center gap-4">
+        {saveMessage && <div className="text-sm text-green-600">{saveMessage}</div>}
         <button
           onClick={handleSave}
-          className="flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-[#00BFA6] to-[#3B6EA5] text-white rounded-lg hover:shadow-lg transition-all font-medium"
+          disabled={saving}
+          className="flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-[#00BFA6] to-[#3B6EA5] text-white rounded-lg hover:shadow-lg transition-all font-medium disabled:opacity-60"
         >
           <Save size={20} />
-          Enregistrer les modifications
+          {saving ? 'Enregistrement...' : 'Enregistrer les modifications'}
         </button>
       </div>
     </div>

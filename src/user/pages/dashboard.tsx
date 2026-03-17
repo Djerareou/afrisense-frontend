@@ -58,15 +58,15 @@ export default function Dashboard() {
     },
   ];
 
-  // Map coordinates (New York example)
-  const mapCenter: [number, number] = [40.7128, -74.0060];
-  const trackerPosition: [number, number] = [40.7128, -74.0060];
-  const geofenceCenter: [number, number] = [40.7128, -74.0060];
+  // Map coordinates (N'Djamena, Chad)
+  const mapCenter: [number, number] = [12.1348, 15.0557];
+  const trackerPosition: [number, number] = [12.1348, 15.0557];
+  const geofenceCenter: [number, number] = [12.1348, 15.0557];
   const historyPath: [number, number][] = [
-    [40.7100, -74.0080],
-    [40.7110, -74.0070],
-    [40.7120, -74.0065],
-    [40.7128, -74.0060],
+    [12.1300, 15.0500],
+    [12.1320, 15.0530],
+    [12.1335, 15.0540],
+    [12.1348, 15.0557],
   ];
 
   return (
